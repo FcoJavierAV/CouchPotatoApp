@@ -69,7 +69,7 @@ def getCompletedSessions():
                     pass
                 '''TODO: Obtener a partir del video_key el objeto Video que sera tipo Episode. Con el obtener el Show y el Season, que tiene los generos. A partir de ahi, filtrar por anime '''
         else:
-            print('No hay sesiones de medios activas en este momento.')
+            print(' * No hay sesiones de medios activas en este momento.')
     else:
         print(f'El usuario no es {PLEX_USER_NAME}. No se pueden obtener las sesiones activas.')
 
@@ -80,8 +80,7 @@ def _checkUserHasActiveSessions():
         return sessions != None 
     return False
 
-
-        
+     
 # Si no existe, solicitar al usuario que ingrese las credenciales
 def _askUserCredentials():
     print("El archivo no existe. Por favor, ingrese las credenciales requeridas:")

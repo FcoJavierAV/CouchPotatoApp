@@ -1,42 +1,20 @@
 import json
-from flask import Flask, jsonify, request, redirect, session, url_for, render_template
+from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 import requests
 import os
 import webbrowser
 import PlexService
+import AnilistService
 
 app = Flask(__name__)
 
 plex_credentials = PlexService.getCredentials()
 PlexService.connectPlex(PlexService, plex_credentials)
 PlexService.getCompletedSessions()
+anilist_credentials = AnilistService.getCredentialsAnilist()
 
 
 
-
-# Verificar si el archivo credentials.json ya existe
-if os.path.exists("json/credentials.json"):
-    with open("json/credentials.json", "r") as file:
-        credentials = json.load(file)
-else:
-    # Pedir al usuario los campos por primera vez
-    CLIENT_ID = input("Introduce el CLIENT_ID: ")
-    CLIENT_SECRET = input("Introduce el CLIENT_SECRET: ")
-    REDIRECT_URI = input("Introduce el REDIRECT_URI: ")
-
-    # Guardar las credenciales en el archivo credentials.json
-    credentials = {
-        "CLIENT_ID": CLIENT_ID,
-        "CLIENT_SECRET": CLIENT_SECRET,
-        "REDIRECT_URI": REDIRECT_URI
-    }
-    with open("json/credentials.json", "w") as file:
-        json.dump(credentials, file)
-
-# Cargar los valores de las credenciales en variables
-CLIENT_ID = credentials['CLIENT_ID']
-CLIENT_SECRET = credentials['CLIENT_SECRET']
-REDIRECT_URI = credentials['REDIRECT_URI']
 
 TOKEN_FILE = 'tokens/access_token.dat'
 
@@ -61,7 +39,7 @@ def home():
 
 @app.route('/login')
 def login():
-    authorization_url = f'https://anilist.co/api/v2/oauth/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code'
+    authorization_url = f'https://anilist.co/api/v2/oauth/authorize?client_id={anilist_credentials.CLIENT_ID}&redirect_uri={anilist_credentials.REDIRECT_URI}&response_type=code'
     return redirect(authorization_url)
 
 @app.route('/callback')
@@ -73,9 +51,9 @@ def callback():
     token_url = 'https://anilist.co/api/v2/oauth/token'
     token_data = {
         'grant_type': 'authorization_code',
-        'client_id': CLIENT_ID,
-        'client_secret': CLIENT_SECRET,
-        'redirect_uri': REDIRECT_URI,
+        'client_id': anilist_credentials.CLIENT_ID,
+        'client_secret': anilist_credentials.CLIENT_SECRET,
+        'redirect_uri': anilist_credentials.REDIRECT_URI,
         'code': code
     }
     token_headers = {
