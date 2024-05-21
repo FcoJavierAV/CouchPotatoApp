@@ -5,7 +5,6 @@ from flask import Flask, jsonify, request, redirect, session, url_for, render_te
 import requests
 import os
 import webbrowser
-import threading
 import base64
 from cryptography.fernet import Fernet
 
@@ -95,10 +94,10 @@ if not os.path.exists(PLEX_DIR):
         "password": encrypt_message(password)
     }
 
-    # Escribir las credenciales en el archivo credentials.json
+    # Escribir las credenciales en el archivo
     with open(PLEX_DIR, 'w') as f:
         json.dump(credentials, f, indent=4)
-    print("Las credenciales se han guardado encriptadas en el archivo credentials.json.")
+    print("Las credenciales se han guardado encriptadas.")
 else:
     # Si el archivo ya existe, leer las credenciales encriptadas desde el archivo JSON
     with open(PLEX_DIR) as f:
