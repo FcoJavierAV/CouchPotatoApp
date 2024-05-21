@@ -1,18 +1,18 @@
 import json
-import plexapi
-from plexapi.myplex import MyPlexAccount
 from flask import Flask, jsonify, request, redirect, session, url_for, render_template
 import requests
 import os
 import webbrowser
-import base64
-from cryptography.fernet import Fernet
+import PlexService
 
 app = Flask(__name__)
 
-# Variables plex
-server_name = 'Javflix'
-plex_user_name = 'thejav53'
+plex_credentials = PlexService.getCredentials()
+PlexService.connectPlex(PlexService, plex_credentials)
+PlexService.getCompletedSessions()
+
+
+
 
 # Verificar si el archivo credentials.json ya existe
 if os.path.exists("json/credentials.json"):
@@ -40,106 +40,8 @@ REDIRECT_URI = credentials['REDIRECT_URI']
 
 TOKEN_FILE = 'tokens/access_token.dat'
 
-# Directorios para almacenar archivos
-JSON_DIR = 'json'
-KEY_DIR = 'bin'
+# anilist finish
 
-# Archivos para almacenar el token de acceso y la clave de encriptación
-PLEX_DIR= os.path.join(JSON_DIR, 'plexUser.json')
-KEY_FILE = os.path.join(KEY_DIR, 'secret.key')
-
-# Crear directorios si no existen
-os.makedirs(JSON_DIR, exist_ok=True)
-os.makedirs(KEY_DIR, exist_ok=True)
-
-# Funciones para encriptar y desencriptar
-
-def generate_key():
-    """Genera una clave y la guarda en un archivo."""
-    key = Fernet.generate_key()
-    with open(KEY_FILE, 'wb') as key_file:
-        key_file.write(key)
-
-def load_key():
-    """Carga la clave de encriptación desde el archivo."""
-    if not os.path.exists(KEY_FILE):
-        generate_key()
-    with open(KEY_FILE, 'rb') as key_file:
-        return key_file.read()
-
-def encrypt_message(message):
-    """Encripta un mensaje con la clave de encriptación."""
-    key = load_key()
-    fernet = Fernet(key)
-    encrypted_message = fernet.encrypt(message.encode())
-    return base64.urlsafe_b64encode(encrypted_message).decode()
-
-def decrypt_message(encrypted_message):
-    """Desencripta un mensaje con la clave de encriptación."""
-    key = load_key()
-    fernet = Fernet(key)
-    encrypted_message = base64.urlsafe_b64decode(encrypted_message.encode())
-    return fernet.decrypt(encrypted_message).decode()
-
-# Verificar si el archivo plexUser.json existe
-if not os.path.exists(PLEX_DIR):
-    # Si no existe, solicitar al usuario que ingrese las credenciales
-    print("El archivo no existe. Por favor, ingrese las credenciales requeridas:")
-    email = input("Email: ")
-    password = input("Password: ")
-
-    # Crear el diccionario de credenciales
-    credentials = {
-        "email": encrypt_message(email),
-        "password": encrypt_message(password)
-    }
-
-    # Escribir las credenciales en el archivo
-    with open(PLEX_DIR, 'w') as f:
-        json.dump(credentials, f, indent=4)
-    print("Las credenciales se han guardado encriptadas.")
-else:
-    # Si el archivo ya existe, leer las credenciales encriptadas desde el archivo JSON
-    with open(PLEX_DIR) as f:
-        encrypted_credentials = json.load(f)
-
-    # Desencriptar las credenciales
-    credentials = {k: decrypt_message(v) for k, v in encrypted_credentials.items()}
-
-    # Asignar las credenciales a variables
-    email = credentials['email']
-    password = credentials['password']
-
-# Plex part
-account = MyPlexAccount(email, password)
-
-# Conectar con el servidor Plex
-plex = account.resource(server_name).connect()
-
-if account.username == plex_user_name:
-    # Obtener las sesiones activas
-    sessions = plex.sessions()
-
-    # Verificar si hay sesiones activas
-    if sessions:
-        # Iterar sobre cada sesión de medios activa
-        for session in sessions:
-            # Obtener los detalles de la sesión
-            serie_name = session.grandparentTitle
-            episode_number = session.index
-            season_title = session.parentTitle
-            season_number = session.parentIndex
-           
-            # Imprimir los detalles de la sesión
-            print(f'Titulo de la serie: {serie_name}')
-            print(f'Numero de capitulo: {episode_number}')
-            print(f'Titulo de la temporada: {season_title}')
-            print(f'Numero de temporada: {season_number}')
-            
-    else:
-        print('No hay sesiones de medios activas en este momento.')
-else:
-    print(f'El usuario no es {plex_user_name}. No se pueden obtener las sesiones activas.')
 
 #Anilist part
 
@@ -223,7 +125,7 @@ def get_anime_info():
         'Content-Type': 'application/json'
     }
 
-    if checkSessionStatus() == True:
+    if PlexService._checkUserHasActiveSessions() == True:
         anime_name = session.grandparentTitle
         season = session.parentIndex
         if season not in [0, 1]:
@@ -276,13 +178,13 @@ def set_anime_update():
         'Content-Type': 'application/json'
     }
         
-    if checkSessionStatus() == True:
+    if PlexService._checkUserHasActiveSessions() == True:
         viewOffset = session.viewOffset 
         duration = session.duration                 
         media_id = 235
-        status = "CURRTENT"
+        status = "CURRENT"
 
-        if percentajeComplete(viewOffset, duration):
+        if PlexService._percentajeComplete(viewOffset, duration):
             print("El episodio está muy cerca de ser completado")
         else:
             print("El episodio no está cerca de ser completado")
@@ -345,7 +247,7 @@ def get_anime_id():
         'Content-Type': 'application/json'
     }
 
-    if checkSessionStatus() == True:
+    if PlexService._checkUserHasActiveSessions() == True: #Funcion publica de plex que llama anilist
         anime_name = session.grandparentTitle
         season = session.parentIndex
         if season not in [0, 1]:
@@ -386,26 +288,7 @@ def get_anime_id():
     else:
         return jsonify({'error': f'Query failed to run with a {response.status_code} status code.', 'response': response.text}), response.status_code
 
-
-def percentajeComplete(viewOffset, duration, umbral=0.85):
-    """
-    Calculate the percentage of the episode that has been watched
-    Verify if viewOffset is within a threshold of the duration.
-    :return: True if viewOffset is within the threshold of the duration, False otherwise.
-"""
-
-    if duration == 0:
-        return False 
-    return (viewOffset / duration) >= umbral
-
-def checkSessionStatus():
-    status = False
-    if account.username == plex_user_name:
-        sessions = plex.sessions()
-        # Check Session
-        if sessions:
-            status = True
-    return status 
+# End point
    
 def open_browser():
     webbrowser.open('http://localhost:5000')
