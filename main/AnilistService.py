@@ -40,7 +40,7 @@ def  _readUserCredentials():
         with open("json/credentials.json", "r") as file:
             credentials = json.load(file)
 
-        return {'CLIENT_ID':credentials['CLIENT_ID'], 'CLIENT_SECRET': credentials['CLIENT_SECRET'], 'REDIRECT_URI': credentials['REDIRECT_URI']}
+        return credentials
 
 def save_access_token(token):
     with open(TOKEN_FILE, 'w') as file:

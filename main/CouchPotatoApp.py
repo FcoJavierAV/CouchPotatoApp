@@ -26,7 +26,7 @@ def home():
 
 @app.route('/login')
 def login():
-    authorization_url = f'https://anilist.co/api/v2/oauth/authorize?client_id={anilist_credentials.CLIENT_ID}&redirect_uri={anilist_credentials.REDIRECT_URI}&response_type=code'
+    authorization_url = f"https://anilist.co/api/v2/oauth/authorize?client_id={anilist_credentials['CLIENT_ID']}&redirect_uri={anilist_credentials['REDIRECT_URI']}&response_type=code"
     return redirect(authorization_url)
 
 @app.route('/callback')
@@ -38,9 +38,9 @@ def callback():
     token_url = 'https://anilist.co/api/v2/oauth/token'
     token_data = {
         'grant_type': 'authorization_code',
-        'client_id': anilist_credentials.CLIENT_ID,
-        'client_secret': anilist_credentials.CLIENT_SECRET,
-        'redirect_uri': anilist_credentials.REDIRECT_URI,
+        'client_id': anilist_credentials['CLIENT_ID'],
+        'client_secret': anilist_credentials['CLIENT_SECRET'],
+        'redirect_uri': anilist_credentials['REDIRECT_URI'],
         'code': code
     }
     token_headers = {

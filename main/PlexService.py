@@ -109,7 +109,7 @@ def _readUserCredentials():
     # Desencriptar las credenciales
     credentials = {k: _decrypt_message(v) for k, v in encrypted_credentials.items()}
     
-    return {'email':credentials['email'], 'password': credentials['password']}
+    return credentials
 
 def _generate_key():
     """Genera una clave y la guarda en un archivo."""
