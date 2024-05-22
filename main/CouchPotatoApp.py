@@ -12,26 +12,13 @@ plex_credentials = PlexService.getCredentials()
 PlexService.connectServer(PlexService, plex_credentials)
 PlexService.getCompletedSessions()
 anilist_credentials = AnilistService.getCredentials()
+AnilistService.load_access_token()
 
 
-
-
-TOKEN_FILE = 'tokens/access_token.dat'
-
-# anilist finish
 
 
 #Anilist part
 
-def save_access_token(token):
-    with open(TOKEN_FILE, 'w') as file:
-        file.write(token)
-
-def load_access_token():
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'r') as file:
-            return file.read().strip()
-    return None
 
 @app.route('/')
 def home():
@@ -63,14 +50,14 @@ def callback():
     token_response = requests.post(token_url, data=token_data, headers=token_headers)
     if token_response.status_code == 200:
         access_token = token_response.json().get('access_token')
-        save_access_token(access_token)
+        AnilistService.save_access_token(access_token)
         return redirect(url_for('home'))
     else:
         return jsonify({'error': 'Failed to obtain access token', 'status_code': token_response.status_code, 'response': token_response.text}), token_response.status_code
 
 @app.route('/user')
 def get_user_info():
-    access_token = load_access_token()
+    access_token = AnilistService.load_access_token()
     if not access_token:
         return jsonify({'error': 'User not logged in'}), 401
 
@@ -93,7 +80,7 @@ def get_user_info():
 
 @app.route('/anime')
 def get_anime_info():
-    access_token = load_access_token()
+    access_token = AnilistService.load_access_token()
     
     if not access_token:
             return jsonify({'error': 'User not logged in'}), 401
@@ -146,7 +133,7 @@ def get_anime_info():
 
 @app.route('/animeUpdate')
 def set_anime_update():
-    access_token = load_access_token()
+    access_token = AnilistService.load_access_token()
 
     if not access_token:
             return jsonify({'error': 'User not logged in'}), 401
@@ -184,7 +171,7 @@ def set_anime_update():
 
 @app.route('/animeComplete')
 def set_anime_complete():
-    access_token = load_access_token()
+    access_token = AnilistService.load_access_token()
 
     if not access_token:
             return jsonify({'error': 'User not logged in'}), 401
@@ -215,7 +202,7 @@ def set_anime_complete():
 # Other operations and comprobations
 
 def get_anime_id():
-    access_token = load_access_token()
+    access_token = AnilistService.load_access_token()
     
     if not access_token:
             return jsonify({'error': 'User not logged in'}), 401

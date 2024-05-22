@@ -4,6 +4,8 @@ import json
 # CONSTANTS
 JSON_DIR = 'json'
 ANILIST_DIR= os.path.join(JSON_DIR, 'credentials.json')
+TOKEN_DIR = 'tokens'
+TOKEN_FILE = os.path.join(TOKEN_DIR,'access_token.dat')
 
 
 
@@ -39,3 +41,14 @@ def  _readUserCredentials():
             credentials = json.load(file)
 
         return {'CLIENT_ID':credentials['CLIENT_ID'], 'CLIENT_SECRET': credentials['CLIENT_SECRET'], 'REDIRECT_URI': credentials['REDIRECT_URI']}
+
+def save_access_token(token):
+    with open(TOKEN_FILE, 'w') as file:
+        file.write(token)
+
+def load_access_token():
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, 'r') as file:
+            return file.read().strip()
+    return None
+
