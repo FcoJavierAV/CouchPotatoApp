@@ -9,9 +9,9 @@ import AnilistService
 app = Flask(__name__)
 
 plex_credentials = PlexService.getCredentials()
-PlexService.connectPlex(PlexService, plex_credentials)
+PlexService.connectServer(PlexService, plex_credentials)
 PlexService.getCompletedSessions()
-anilist_credentials = AnilistService.getCredentialsAnilist()
+anilist_credentials = AnilistService.getCredentials()
 AnilistService.load_access_token()
 
 

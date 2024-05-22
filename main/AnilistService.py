@@ -9,24 +9,24 @@ TOKEN_FILE = os.path.join(TOKEN_DIR,'access_token.dat')
 
 
 
-def getCredentialsAnilist():
+def getCredentials():
     # Verificar si el archivo credentials.json existe
     if not os.path.exists(ANILIST_DIR):
-        return _askAnilistUserCredentials()
+        return _askUserCredentials()
     else:
-        return  _readtUserCredentialsAnilis()
+        return  _readUserCredentials()
     
-def _askAnilistUserCredentials():
+def _askUserCredentials():
     print("Las credenciales de anilist no existen. Por favor, ingrese las credenciales requeridas:")
     CLIENT_ID = input("Introduce el CLIENT_ID: ")
     CLIENT_SECRET = input("Introduce el CLIENT_SECRET: ")
     REDIRECT_URI = input("Introduce el REDIRECT_URI: ")    
     credentials = {'CLIENT_ID': CLIENT_ID, 'CLIENT_SECRET': CLIENT_SECRET, 'REDIRECT_URI': REDIRECT_URI}
-    _savecredentialsAnilist(credentials)
+    _saveUserCredentials(credentials)
 
     return credentials
 
-def _savecredentialsAnilist(credentials):
+def _saveUserCredentials(credentials):
     # Guardar las credenciales en el archivo credentials.json
     credentials = {
         "CLIENT_ID": credentials.CLIENT_ID,
@@ -36,7 +36,7 @@ def _savecredentialsAnilist(credentials):
     with open("json/credentials.json", "w") as file:
         json.dump(credentials, file)
 
-def  _readtUserCredentialsAnilis():
+def  _readUserCredentials():
         with open("json/credentials.json", "r") as file:
             credentials = json.load(file)
 
