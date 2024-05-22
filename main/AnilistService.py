@@ -7,7 +7,7 @@ ANILIST_DIR= os.path.join(JSON_DIR, 'credentials.json')
 
 
 
-def getCredentialsAnilist():
+def getCredentials():
     # Verificar si el archivo credentials.json existe
     if not os.path.exists(ANILIST_DIR):
         return _askUserCredentials()
