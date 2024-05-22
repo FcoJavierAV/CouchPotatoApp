@@ -45,7 +45,7 @@ def getCredentials():
         return _readUserCredentials()
     
 
-def connectPlex(self, credentials):
+def connectServer(self, credentials):
     self.account = MyPlexAccount(credentials['email'], credentials['password'])
     self.plex = account.resource(SERVER_NAME).connect()
 
