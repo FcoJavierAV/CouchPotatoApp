@@ -88,3 +88,24 @@ def get_anime_id(anime_full):
     response = requests.post("https://graphql.anilist.co", json={'query': query, 'variables': variables}, headers=headers)
 
     return response
+
+def get_user_id():
+
+    if not load_access_token():
+        return print('No existe el token')
+
+    headers = {
+        'Authorization': f'Bearer {load_access_token()}',
+        'Content-Type': 'application/json'
+    }
+
+    query = '''
+    query {
+        Viewer {
+            id
+        }
+    }
+    '''
+    response = requests.post('https://graphql.anilist.co', json={'query': query}, headers=headers)
+
+    return response    

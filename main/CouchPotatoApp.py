@@ -68,26 +68,12 @@ def callback():
 
 @app.route('/user')
 def get_user_info():
-    access_token = AnilistService.load_access_token()
-    if not access_token:
-        return jsonify({'error': 'User not logged in'}), 401
-
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
-    query = '''
-    query {
-        Viewer {
-            id
-        }
-    }
-    '''
-    response = requests.post('https://graphql.anilist.co', json={'query': query}, headers=headers)
-    if response.status_code == 200:
-        return jsonify(response.json())
+  
+    if AnilistService.get_user_id().status_code == 200:
+        return jsonify(AnilistService.get_user_id().json())
     else:
-        return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
+        return jsonify({'error': 'Failed to fetch user info', 'status_code': AnilistService.get_user_id().status_code, 'response': AnilistService.get_user_id().text}), AnilistService.get_user_id().status_code
+    
 
 @app.route('/anime')
 def get_anime_info():
