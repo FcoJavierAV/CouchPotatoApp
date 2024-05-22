@@ -1,5 +1,6 @@
 import plexapi
 from plexapi.myplex import MyPlexAccount
+from plexapi.server import PlexServer
 import os
 import json
 import base64
@@ -10,23 +11,25 @@ SERVER_NAME = 'Javflix'
 PLEX_USER_NAME = 'thejav53'
 JSON_DIR = 'json'
 KEY_DIR = 'bin'
+PLEX_URL = 'http://127.0.0.1:32400'
+PLEX_TOKEN = 'Mt6r87gvwmMgjSgApgW7'
 
 PLEX_DIR= os.path.join(JSON_DIR, 'plexUser.json')
 KEY_FILE = os.path.join(KEY_DIR, 'secret.key')
 
 # VARIABLES
 account = None
-plex = None
+account_connection = None
+plex_server = None
 
 class PlexSession:
-    def __init__(self, video_key,serie_name, episode_number, season_title, season_number, duration, season_episode, viewOffset):
-        self.video_key = video_key
+    def __init__(self, rating_key, serie_name, episode_number, season_title, season_number, duration, viewOffset):
+        self.rating_key = rating_key
         self.serie_name = serie_name
         self.episode_number = episode_number
         self.season_title = season_title
         self.season_number = season_number
         self.duration = duration
-        self.season_episode = season_episode #s{int}e{int}
         self.viewOffset = viewOffset
 
     def toString(self):   
@@ -47,40 +50,49 @@ def getCredentials():
 
 def connectServer(self, credentials):
     self.account = MyPlexAccount(credentials['email'], credentials['password'])
-    self.plex = account.resource(SERVER_NAME).connect()
+    self.account_connection = account.resource(SERVER_NAME).connect()
+    self.plex_server = PlexServer(PLEX_URL, PLEX_TOKEN)
 
 
 #2. Obtener sessions (funciones propias)
 def getCompletedSessions():
     if _checkUserHasActiveSessions():
         # Obtener las sesiones activas
-        sessions = plex.sessions()
-
+        sessions = account_connection.sessions()
         # Verificar si hay sesiones activas
         if sessions:
             sessions_list = []
             # Iterar sobre cada sesión de medios activa
             for session in sessions:
                 # Obtener los detalles de la sesión
-                plex_session = PlexSession(session.video_key, session.grandparentTitle, session.index, session.parentTitle, session.parentIndex, session.duration, session.season_episode, session.viewOffset)
+                plex_session = PlexSession(session.key, session.grandparentTitle, session.index, session.parentTitle, session.parentIndex, session.duration, session.viewOffset)
                 sessions_list.append(plex_session)
-                print(plex_session.toString)
                 if _percentajeComplete(plex_session.viewOffset, plex_session.duration):
-                    pass
-                '''TODO: Obtener a partir del video_key el objeto Video que sera tipo Episode. Con el obtener el Show y el Season, que tiene los generos. A partir de ahi, filtrar por anime '''
+                    show = _getShow(plex_session)                    
+                    if _isAnime(show):
+                        return show.originalTitle 
         else:
             print(' * No hay sesiones de medios activas en este momento.')
     else:
         print(f'El usuario no es {PLEX_USER_NAME}. No se pueden obtener las sesiones activas.')
+    return None
 
 def _checkUserHasActiveSessions():
     if account.username == PLEX_USER_NAME:
-        sessions = plex.sessions()
+        sessions = account_connection.sessions()
         # Check Session
         return sessions != None 
     return False
 
-     
+def _getShow(plex_session):
+    episode = plex_server.fetchItem(plex_session.rating_key)
+    if isinstance(episode, plexapi.video.Episode):
+        showKey = episode.grandparentKey
+        return plex_server.fetchItem(showKey)
+        
+def _isAnime(show):
+    return len([show.genres for show_genre in show.genres if show_genre.tag == 'Anime']) > 0
+
 # Si no existe, solicitar al usuario que ingrese las credenciales
 def _askUserCredentials():
     print("El archivo no existe. Por favor, ingrese las credenciales requeridas:")

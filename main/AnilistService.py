@@ -1,5 +1,6 @@
 import os
 import json
+import requests
 
 # CONSTANTS
 JSON_DIR = 'json'
@@ -52,3 +53,38 @@ def load_access_token():
             return file.read().strip()
     return None
 
+
+def notifyChange():
+    print('hola')
+
+def setStatusAnime():
+
+    mutation = '''
+    mutation ($id: Int, $status: MediaListStatus) {
+        SaveMediaListEntry (mediaId: $id, status: $status) {
+            status
+        }
+    }
+    '''
+
+def get_anime_id(anime_full):
+     
+    headers = {
+        'Authorization': f'Bearer {load_access_token()}',
+        'Content-Type': 'application/json'
+    }
+     
+    if not load_access_token():
+        return print('No existe el token')
+
+    query = '''
+        query ($search: String) {
+            Media(search: $search, type: ANIME) {
+                id
+            }
+        }
+        '''
+    variables = {"search": anime_full}
+    response = requests.post("https://graphql.anilist.co", json={'query': query, 'variables': variables}, headers=headers)
+
+    return response

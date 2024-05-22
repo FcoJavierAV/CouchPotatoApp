@@ -1,7 +1,7 @@
-import json
+import threading
+import time
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 import requests
-import os
 import webbrowser
 import PlexService
 import AnilistService
@@ -10,15 +10,26 @@ app = Flask(__name__)
 
 plex_credentials = PlexService.getCredentials()
 PlexService.connectServer(PlexService, plex_credentials)
-PlexService.getCompletedSessions()
 anilist_credentials = AnilistService.getCredentials()
 AnilistService.load_access_token()
 
+def completeSessionTask():
+    while True:
+        show_original_title = PlexService.getCompletedSessions()
+        if show_original_title != None:
+            print("Ole ole ole")
+            show_original_title = None
+        else:
+            print("No esta terminando")
+        time.sleep(5)
+
+
+mainThread = threading.Thread(target=completeSessionTask)
+mainThread.start()
 
 
 
 #Anilist part
-
 
 @app.route('/')
 def home():
@@ -144,8 +155,8 @@ def set_anime_update():
     }
         
     if PlexService._checkUserHasActiveSessions() == True:
-        viewOffset = session.viewOffset 
-        duration = session.duration                 
+        viewOffset = session.viewOffset
+        duration = session.duration      
         media_id = 235
         status = "CURRENT"
 
@@ -158,6 +169,7 @@ def set_anime_update():
         mutation ($id: Int, $status: MediaListStatus) {
             SaveMediaListEntry (mediaId: $id, status: $status, progress: $progress) {
                 status
+                progress
             }
         }
         ''' 
@@ -202,17 +214,7 @@ def set_anime_complete():
 # Other operations and comprobations
 
 def get_anime_id():
-    access_token = AnilistService.load_access_token()
-    
-    if not access_token:
-            return jsonify({'error': 'User not logged in'}), 401
-
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
-
-    if PlexService._checkUserHasActiveSessions() == True: #Funcion publica de plex que llama anilist
+    if PlexService._checkUserHasActiveSessions() == True: 
         anime_name = session.grandparentTitle
         season = session.parentIndex
         if season not in [0, 1]:
@@ -224,26 +226,12 @@ def get_anime_id():
         if not anime_full:
             return jsonify({'error': 'Anime name is required'}), 400
 
-        if not access_token:
-            return jsonify({'error': 'User not logged in'}), 401
+        return AnilistService.get_anime_id(anime_full)
 
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Content-Type': 'application/json'
-        }
+    return None
 
-        query = '''
-        query ($search: String) {
-            Media(search: $search, type: ANIME) {
-                id
-            }
-        }
-        '''
 
-        variables = {"search": anime_full}
-        response = requests.post("https://graphql.anilist.co", json={'query': query, 'variables': variables}, headers=headers)
-
-    if response.status_code == 200:
+"""    if response.status_code == 200:
         data = response.json()
         if 'data' in data and 'Media' in data['data']:
             anime_id = data['data']['Media']['id']
@@ -252,7 +240,7 @@ def get_anime_id():
             return jsonify({'error': 'Anime not found'}), 404
     else:
         return jsonify({'error': f'Query failed to run with a {response.status_code} status code.', 'response': response.text}), response.status_code
-
+"""
 # End point
    
 def open_browser():
