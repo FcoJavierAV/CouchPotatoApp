@@ -8,7 +8,7 @@ ANILIST_DIR= os.path.join(JSON_DIR, 'credentials.json')
 TOKEN_DIR = 'tokens'
 TOKEN_FILE = os.path.join(TOKEN_DIR,'access_token.dat')
 
-
+url = 'https://graphql.anilist.co'
 
 def getCredentials():
     # Verificar si el archivo credentials.json existe
@@ -57,8 +57,16 @@ def load_access_token():
 def notifyChange():
     print('hola')
 
-def setStatusAnime():
+def setStatusAnime(media_id, status):
 
+    headers = {
+        'Authorization': f'Bearer {load_access_token()}',
+        'Content-Type': 'application/json'
+    }
+     
+    if not load_access_token():
+        return print('No existe el token')
+    
     mutation = '''
     mutation ($id: Int, $status: MediaListStatus) {
         SaveMediaListEntry (mediaId: $id, status: $status) {
@@ -67,7 +75,42 @@ def setStatusAnime():
     }
     '''
 
-def get_anime_id(anime_full):
+    variables = {'id': media_id, 'status ': status}
+
+    response = requests.post(url, json={'query': mutation, 'variables': variables}, headers=headers)
+
+    return response
+
+# Not defined
+def getUserStatusAnime(user_id, anime_id):
+
+    headers = {
+        'Authorization': f'Bearer {load_access_token()}',
+        'Content-Type': 'application/json'
+    }
+     
+    if not load_access_token():
+        return print('No existe el token')
+
+    query = '''
+    query ($userId: Int, $animeId: Int) {
+    MediaList(userId: $userId, type: ANIME, mediaId: $animeId) {
+        status
+        }
+    }
+    ''' 
+
+    variables = {
+        'userId': user_id,
+        'animeId': anime_id
+    }
+
+    response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
+
+    return response
+
+
+def get_anime_info(anime_full):
      
     headers = {
         'Authorization': f'Bearer {load_access_token()}',
@@ -81,11 +124,19 @@ def get_anime_id(anime_full):
         query ($search: String) {
             Media(search: $search, type: ANIME) {
                 id
+                title{
+                    english
+                    romaji
+                    native
+                }
+                episodes
+                format
+                status
             }
         }
         '''
     variables = {"search": anime_full}
-    response = requests.post("https://graphql.anilist.co", json={'query': query, 'variables': variables}, headers=headers)
+    response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
 
     return response
 
@@ -106,6 +157,6 @@ def get_user_id():
         }
     }
     '''
-    response = requests.post('https://graphql.anilist.co', json={'query': query}, headers=headers)
+    response = requests.post(url, json={'query': query}, headers=headers)
 
     return response    

@@ -74,7 +74,7 @@ def getCompletedSessions():
         else:
             print(' * No hay sesiones de medios activas en este momento.')
     else:
-        print(f'El usuario no es {PLEX_USER_NAME}. No se pueden obtener las sesiones activas.')
+        print(f' *  Error el usuario no es {PLEX_USER_NAME}.')
     return None
 
 def _checkUserHasActiveSessions():
@@ -150,7 +150,7 @@ def _decrypt_message(encrypted_message):
     encrypted_message = base64.urlsafe_b64decode(encrypted_message.encode())
     return fernet.decrypt(encrypted_message).decode()
 
-def _percentajeComplete(viewOffset, duration, umbral=0.85):
+def _percentajeComplete(viewOffset, duration, umbral=0.87):
     """
     Calculate the percentage of the episode that has been watched
     Verify if viewOffset is within a threshold of the duration.

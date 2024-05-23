@@ -77,19 +77,10 @@ def get_user_info():
 
 @app.route('/anime')
 def get_anime_info():
-    access_token = AnilistService.load_access_token()
-    
-    if not access_token:
-            return jsonify({'error': 'User not logged in'}), 401
-
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
 
     if PlexService._checkUserHasActiveSessions() == True:
-        anime_name = session.grandparentTitle
-        season = session.parentIndex
+        anime_name = PlexService.getCompletedSessions()
+        season = 1                                        # Important change
         if season not in [0, 1]:
             str(season)
             anime_full = f"{anime_name} {season}"
@@ -98,30 +89,8 @@ def get_anime_info():
 
         if not anime_full:
             return jsonify({'error': 'Anime name is required'}), 400
-
-        if not access_token:
-            return jsonify({'error': 'User not logged in'}), 401
-
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Content-Type': 'application/json'
-        }
-
-        query = '''
-        query ($search: String) {
-            Media(search: $search, type: ANIME) {
-                id
-                title {
-                    romaji
-                    english
-                }
-                synonyms
-            }
-        }
-        '''
-
-        variables = {'search': anime_full}
-        response = requests.post('https://graphql.anilist.co', json={'query': query, 'variables': variables}, headers=headers)
+    
+        response = AnilistService.get_anime_info(anime_full)
 
     if response.status_code == 200:
         return jsonify(response.json())
@@ -169,36 +138,19 @@ def set_anime_update():
 
 @app.route('/animeComplete')
 def set_anime_complete():
-    access_token = AnilistService.load_access_token()
-
-    if not access_token:
-            return jsonify({'error': 'User not logged in'}), 401
-
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
 
     media_id = 235
     status = "COMPLETED"
 
-    mutation = '''
-    mutation ($id: Int, $status: MediaListStatus) {
-        SaveMediaListEntry (mediaId: $id, status: $status) {
-            status
-        }
-    }
-    '''
-    variables = {'id': media_id, 'status': status}
-    response = requests.post('https://graphql.anilist.co', json={'query': mutation, 'variables': variables}, headers=headers)
+    response = AnilistService.setStatusAnime(media_id, status)
 
     if response.status_code == 200:
         return jsonify(response.json())
     else:
         return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
 
-# Other operations and comprobations
 
+# Other operations and comprobations
 def get_anime_id():
     if PlexService._checkUserHasActiveSessions() == True: 
         anime_name = session.grandparentTitle
