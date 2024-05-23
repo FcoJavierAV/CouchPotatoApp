@@ -70,7 +70,7 @@ def getCompletedSessions():
                 if _percentajeComplete(plex_session.viewOffset, plex_session.duration):
                     show = _getShow(plex_session)                    
                     if _isAnime(show):
-                        return show.originalTitle 
+                        return show.originalTitle
         else:
             print(' * No hay sesiones de medios activas en este momento.')
     else:

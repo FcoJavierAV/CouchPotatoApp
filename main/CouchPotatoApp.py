@@ -18,6 +18,7 @@ def completeSessionTask():
         show_original_title = PlexService.getCompletedSessions()
         if show_original_title != None:
             print("Ole ole ole")
+            get_anime_info()
             show_original_title = None
         else:
             print("No esta terminando")
@@ -68,19 +69,42 @@ def callback():
 
 @app.route('/user')
 def get_user_info():
+
+    response = AnilistService.get_user_id()
   
-    if AnilistService.get_user_id().status_code == 200:
+    if response.status_code == 200:
         return jsonify(AnilistService.get_user_id().json())
     else:
-        return jsonify({'error': 'Failed to fetch user info', 'status_code': AnilistService.get_user_id().status_code, 'response': AnilistService.get_user_id().text}), AnilistService.get_user_id().status_code
+        return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
     
 
-@app.route('/anime')
+
 def get_anime_info():
 
-    if PlexService._checkUserHasActiveSessions() == True:
-        anime_name = PlexService.getCompletedSessions()
-        season = 1                                        # Important change
+    anime_name = 'rwqerwe'
+    anime_info = AnilistService.get_anime_info(anime_name)
+    if anime_info:
+        print(f"Información del anime {anime_name}:")
+        print(f"ID: {anime_info['id']}")
+        print(f"Título (inglés): {anime_info['title']['english']}")
+        print(f"Título (romaji): {anime_info['title']['romaji']}")
+        print(f"Título (nativo): {anime_info['title']['native']}")
+        print(f"Episodios: {anime_info['episodes']}")
+        print(f"Formato: {anime_info['format']}")
+        print(f"Estado: {anime_info['status']}")
+    else:
+        print(f"No se encontró información para el anime {anime_name}")
+
+
+
+
+
+
+
+    '''if PlexService._checkUserHasActiveSessions() == True:
+        session = PlexService.getCompletedSessions()
+        anime_name = session['show']
+        season = 1                     # Important change ¿De donde webas saco el numero de season (no funciona el session.index )?
         if season not in [0, 1]:
             str(season)
             anime_full = f"{anime_name} {season}"
@@ -96,6 +120,9 @@ def get_anime_info():
         return jsonify(response.json())
     else:
         return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
+'''
+
+
 
 @app.route('/animeUpdate')
 def set_anime_update():
@@ -109,16 +136,11 @@ def set_anime_update():
         'Content-Type': 'application/json'
     }
         
-    if PlexService._checkUserHasActiveSessions() == True:
-        viewOffset = session.viewOffset
-        duration = session.duration      
+    if PlexService._checkUserHasActiveSessions() == True:        
+           
         media_id = 235
         status = "CURRENT"
-
-        if PlexService._percentajeComplete(viewOffset, duration):
-            print("El episodio está muy cerca de ser completado")
-        else:
-            print("El episodio no está cerca de ser completado")
+        progress = 1
 
         mutation = '''
         mutation ($id: Int, $status: MediaListStatus) {
@@ -128,7 +150,7 @@ def set_anime_update():
             }
         }
         ''' 
-        variables = {'id': media_id, 'status': status}
+        variables = {'id': media_id, 'status': status, 'progress': progress}
         response = requests.post('https://graphql.anilist.co', json={'query': mutation, 'variables': variables}, headers=headers)
 
     if response.status_code == 200:

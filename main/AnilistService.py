@@ -138,7 +138,29 @@ def get_anime_info(anime_full):
     variables = {"search": anime_full}
     response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
 
-    return response
+    if response.status_code == 200:
+        data = response.json()
+        if 'data' in data and 'Media' in data['data']:
+            media = data['data']['Media']
+            anime_info = {
+                'id': media['id'],  # Esto es un entero
+                'title': {
+                    'english': media['title'].get('english'),
+                    'romaji': media['title'].get('romaji'),
+                    'native': media['title'].get('native')
+                },
+                'episodes': media.get('episodes'),
+                'format': media.get('format'),
+                'status': media.get('status')
+            }
+            return anime_info
+        else:
+            print('No se encontraron datos de anime')
+            return None
+    else:
+        print(f"Error en la solicitud: {response.status_code}")
+        return None
+
 
 def get_user_id():
 
