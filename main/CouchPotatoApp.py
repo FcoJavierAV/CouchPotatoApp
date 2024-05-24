@@ -1,6 +1,7 @@
 import threading
 import time
-from flask import Flask, jsonify, redirect, request, session, url_for, render_template
+from flask import Flask, jsonify, redirect, request, url_for, render_template
+import psutil
 import requests
 import webbrowser
 import PlexService
@@ -10,15 +11,18 @@ app = Flask(__name__)
 
 plex_credentials = PlexService.getCredentials()
 PlexService.connectServer(PlexService, plex_credentials)
-anilist_credentials = AnilistService.getCredentials()
-AnilistService.load_access_token()
+anilist_credentials = AnilistService.init(AnilistService)
+
 
 def completeSessionTask():
     while True:
-        show_original_title = PlexService.getCompletedSessions()
+        show_original_title = PlexService.getCompletedSessions()['original_title']
         if show_original_title != None:
-            print("Ole ole ole")
-            get_anime_info()
+            print("Anime completado")
+            userId = AnilistService.get_user_id()
+            animeId = AnilistService.getAnimeInfo(show_original_title)['id']
+            AnilistService.getMediaUserStatus(userId , animeId) 
+            AnilistService.setStatusAnime(153518, 'CURRENT')
             show_original_title = None
         else:
             print("No esta terminando")
@@ -27,10 +31,6 @@ def completeSessionTask():
 
 mainThread = threading.Thread(target=completeSessionTask)
 mainThread.start()
-
-
-
-#Anilist part
 
 @app.route('/')
 def home():
@@ -46,43 +46,12 @@ def callback():
     code = request.args.get('code')
     if not code:
         return jsonify({'error': 'No authorization code provided'}), 400
-
-    token_url = 'https://anilist.co/api/v2/oauth/token'
-    token_data = {
-        'grant_type': 'authorization_code',
-        'client_id': anilist_credentials['CLIENT_ID'],
-        'client_secret': anilist_credentials['CLIENT_SECRET'],
-        'redirect_uri': anilist_credentials['REDIRECT_URI'],
-        'code': code
-    }
-    token_headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    token_response = requests.post(token_url, data=token_data, headers=token_headers)
-    if token_response.status_code == 200:
-        access_token = token_response.json().get('access_token')
-        AnilistService.save_access_token(access_token)
-        return redirect(url_for('home'))
-    else:
-        return jsonify({'error': 'Failed to obtain access token', 'status_code': token_response.status_code, 'response': token_response.text}), token_response.status_code
-
-@app.route('/user')
-def get_user_info():
-
-    response = AnilistService.get_user_id()
-  
-    if response.status_code == 200:
-        return jsonify(AnilistService.get_user_id().json())
-    else:
-        return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
+    AnilistService.getToken(AnilistService, anilist_credentials, code)
     
-
-
+    
 def get_anime_info():
-
-    anime_name = 'rwqerwe'
-    anime_info = AnilistService.get_anime_info(anime_name)
+    anime_name = PlexService.getCompletedSessions()['original_title']
+    anime_info = AnilistService.getAnimeInfo(anime_name)
     if anime_info:
         print(f"Información del anime {anime_name}:")
         print(f"ID: {anime_info['id']}")
@@ -98,13 +67,10 @@ def get_anime_info():
 
 
 
-
-
-
     '''if PlexService._checkUserHasActiveSessions() == True:
         session = PlexService.getCompletedSessions()
         anime_name = session['show']
-        season = 1                     # Important change ¿De donde webas saco el numero de season (no funciona el session.index )?
+        season = 1                     # Important change ¿De donde saco el numero de season (no funciona el session.index )?
         if season not in [0, 1]:
             str(season)
             anime_full = f"{anime_name} {season}"
@@ -122,61 +88,28 @@ def get_anime_info():
         return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
 '''
 
+def set_anime_user_progress():
+    if PlexService._checkUserHasActiveSessions() == True:
+        animeId = getAnimeInfo()
+        progress = PlexService.getCompletedSessions()['episode']
+
+        AnilistService.setAnimeUserProgress(animeId, progress)
 
 
-@app.route('/animeUpdate')
-def set_anime_update():
-    access_token = AnilistService.load_access_token()
-
-    if not access_token:
-            return jsonify({'error': 'User not logged in'}), 401
-
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
-        
-    if PlexService._checkUserHasActiveSessions() == True:        
-           
-        media_id = 235
-        status = "CURRENT"
-        progress = 1
-
-        mutation = '''
-        mutation ($id: Int, $status: MediaListStatus) {
-            SaveMediaListEntry (mediaId: $id, status: $status, progress: $progress) {
-                status
-                progress
-            }
-        }
-        ''' 
-        variables = {'id': media_id, 'status': status, 'progress': progress}
-        response = requests.post('https://graphql.anilist.co', json={'query': mutation, 'variables': variables}, headers=headers)
-
-    if response.status_code == 200:
-        return jsonify(response.json())
-    else:
-        return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
-
-@app.route('/animeComplete')
-def set_anime_complete():
-
-    media_id = 235
+def setAnimeComplete(media_id):
     status = "COMPLETED"
-
     response = AnilistService.setStatusAnime(media_id, status)
-
     if response.status_code == 200:
         return jsonify(response.json())
     else:
         return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
 
 
-# Other operations and comprobations
-def get_anime_id():
+def getAnimeInfo():
     if PlexService._checkUserHasActiveSessions() == True: 
-        anime_name = session.grandparentTitle
-        season = session.parentIndex
+        plex_viewed_episode = PlexService.getCompletedSessions()
+        season = plex_viewed_episode['season']
+        anime_name = plex_viewed_episode['original_title']
         if season not in [0, 1]:
             str(season)
             anime_full = f"{anime_name} {season}"
@@ -186,26 +119,26 @@ def get_anime_id():
         if not anime_full:
             return jsonify({'error': 'Anime name is required'}), 400
 
-        return AnilistService.get_anime_id(anime_full)
+        return AnilistService.getAnimeInfo(anime_full)
 
     return None
 
-
-"""    if response.status_code == 200:
-        data = response.json()
-        if 'data' in data and 'Media' in data['data']:
-            anime_id = data['data']['Media']['id']
-            return jsonify({'anime_id': anime_id}), 200
-        else:
-            return jsonify({'error': 'Anime not found'}), 404
-    else:
-        return jsonify({'error': f'Query failed to run with a {response.status_code} status code.', 'response': response.text}), response.status_code
-"""
 # End point
-   
-def open_browser():
-    webbrowser.open('http://localhost:5000')
-    
+def isPortInUse(port):
+    """Check if a port is in use on the local machine."""
+    for conn in psutil.net_connections():
+        if conn.laddr.port == port:
+            return True
+    return False   
+
+
+def openBrowser():
+    url = 'http://localhost:5000'
+    if not isPortInUse(5000):
+        webbrowser.open(url)
+    else:
+        print(f"Port 5000 is already in use. Please check if the server is already running.")
+
 if __name__ == '__main__':
-    open_browser()
+    openBrowser()
     app.run(debug=True)
