@@ -240,4 +240,3 @@ def setAnimeUserProgress(media_id, progress):
     response = requests.post(url, json={'query': mutation, 'variables': variables}, headers=headers)
 
     return response
-

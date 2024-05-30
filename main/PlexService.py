@@ -33,15 +33,12 @@ class PlexSession:
         self.viewOffset = viewOffset
 
     def toString(self):   
-        # Imprimir los detalles de la sesión
         return f'Titulo de la serie: {self.serie_name} Numero de capitulo: {self.episode_number} Titulo de la temporada: {self.season_title} Numero de temporada: {self.season_number}'
 
 def getCredentials():
-    # Crear directorios si no existen
     os.makedirs(JSON_DIR, exist_ok=True)
     os.makedirs(KEY_DIR, exist_ok=True)
 
-    # Verificar si el archivo plexUser.json existe
     if not os.path.exists(PLEX_DIR):
         return _askUserCredentials()
     else:
@@ -52,7 +49,6 @@ def connectServer(self, credentials):
     self.account = MyPlexAccount(credentials['email'], credentials['password'])
     self.account_connection = account.resource(SERVER_NAME).connect()
     self.plex_server = PlexServer(PLEX_URL, PLEX_TOKEN)
-
 
 #2. Obtener sessions (funciones propias)
 def getCompletedSessions():
@@ -70,21 +66,17 @@ def getCompletedSessions():
                 if _percentajeComplete(plex_session.viewOffset, plex_session.duration):
                     show = _getShow(plex_session)                    
                     if _isAnime(show):
-                        return {'original_title': show.originalTitle,
-                                'season': plex_session.parentIndex,
-                                'episode': plex_session.index
-                                }
+                        return show.originalTitle                             
         else:
             print(' * No hay sesiones de medios activas en este momento.')
     else:
-        print(f' *  Error el usuario no es {PLEX_USER_NAME}.')
+        print(f' *  No existe sesión')
     return None
 
 def _checkUserHasActiveSessions():
     if account.username == PLEX_USER_NAME:
         sessions = account_connection.sessions()
-        # Check Session
-        return sessions != None 
+        return sessions
     return False
 
 def _getShow(plex_session):
@@ -96,7 +88,6 @@ def _getShow(plex_session):
 def _isAnime(show):
     return len([show.genres for show_genre in show.genres if show_genre.tag == 'Anime']) > 0
 
-# Si no existe, solicitar al usuario que ingrese las credenciales
 def _askUserCredentials():
     print("El archivo no existe. Por favor, ingrese las credenciales requeridas:")
     email = input("Email: ")
@@ -117,11 +108,8 @@ def _saveEncryptedCredentials(credentials):
     print("Las credenciales se han guardado encriptadas.")
         
 def _readUserCredentials():
-    # Si el archivo ya existe, leer las credenciales encriptadas desde el archivo JSON
     with open(PLEX_DIR) as f:
         encrypted_credentials = json.load(f)
-
-    # Desencriptar las credenciales
     credentials = {k: _decrypt_message(v) for k, v in encrypted_credentials.items()}
     
     return credentials
@@ -154,12 +142,24 @@ def _decrypt_message(encrypted_message):
     return fernet.decrypt(encrypted_message).decode()
 
 def _percentajeComplete(viewOffset, duration, umbral=0.87):
-    """
-    Calculate the percentage of the episode that has been watched
-    Verify if viewOffset is within a threshold of the duration.
-    :return: True if viewOffset is within the threshold of the duration, False otherwise.
-"""
     if duration == 0:
         return False 
     return (viewOffset / duration) >= umbral
 
+
+def getSessionDetails():
+    if _checkUserHasActiveSessions():
+        sessions = account_connection.sessions()
+        if sessions:
+            session = sessions[0]
+            session_detail = {
+                'index': session.index,
+                'parentTitle': session.parentTitle,
+                'parentIndex': session.parentIndex
+            }
+            return session_detail
+        else:
+            print(' * No hay sesiones de medios activas en este momento.')
+    else:
+        print(' * No existe sesión')
+    return None
