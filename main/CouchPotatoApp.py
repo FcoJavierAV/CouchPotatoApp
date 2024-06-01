@@ -11,15 +11,17 @@ app = Flask(__name__)
 plex_credentials = PlexService.getCredentials()
 PlexService.connectServer(PlexService, plex_credentials)
 anilist_credentials = AnilistService.init(AnilistService)
-
+userId = AnilistService.getUserId()
 
 def completeSessionTask():
+    lastPlexEpisodeViewed = None
     while True:
-        show_original_title = PlexService.getCompletedSessions()
-        if show_original_title != None:
+        plexEpisodeViewed = PlexService.getCompletedSessions()
+        if plexEpisodeViewed != None and lastPlexEpisodeViewed != plexEpisodeViewed:
             print("Episodio completado")
-            addEpisode()
-            show_original_title = None
+            if (addEpisode(plexEpisodeViewed)):
+                lastPlexEpisodeViewed = plexEpisodeViewed
+                plexEpisodeViewed = None
         else:
             print("No esta terminando")
         time.sleep(5)
@@ -44,8 +46,8 @@ def callback():
         return jsonify({'error': 'No authorization code provided'}), 400
     AnilistService.getToken(AnilistService, anilist_credentials, code)
     
-    
-def get_anime_info():
+#Función prueba    
+def toStringAnimeInfo():
     anime_name = PlexService.getCompletedSessions()
     anime_info = AnilistService.getAnimeInfo(anime_name)
     if anime_info:
@@ -61,45 +63,17 @@ def get_anime_info():
         print(f"No se encontró información para el anime {anime_name}")
 
 
-
-
-    '''if PlexService._checkUserHasActiveSessions() == True:
-        session = PlexService.getCompletedSessions()
-        anime_name = session['show']
-        season = 1                     # Important change ¿De donde saco el numero de season (no funciona el session.index )?
-        if season not in [0, 1]:
-            str(season)
-            anime_full = f"{anime_name} {season}"
-        else:
-            anime_full = anime_name
-
-        if not anime_full:
-            return jsonify({'error': 'Anime name is required'}), 400
-    
-        response = AnilistService.get_anime_info(anime_full)
-
-    if response.status_code == 200:
-        return jsonify(response.json())
-    else:
-        return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
-'''
-
-def set_anime_user_progress():
+def setAnimeUserProgress():
     if PlexService._checkUserHasActiveSessions() == True:
-        animeId = getAnimeInfo()
-        progress = PlexService.getCompletedSessions()['episode']
+        animeId = AnilistService.getAnimeId()
+        episode_num = PlexService.getSessionDetails()
+        episode = episode_num['index']
 
-        AnilistService.setAnimeUserProgress(animeId, progress)
-
+        AnilistService.setAnimeUserProgress(animeId, episode)
 
 def setAnimeComplete(media_id):
     status = "COMPLETED"
-    response = AnilistService.setStatusAnime(media_id, status)
-    if response.status_code == 200:
-        return jsonify(response.json())
-    else:
-        return jsonify({'error': 'Failed to fetch user info', 'status_code': response.status_code, 'response': response.text}), response.status_code
-
+    AnilistService.setAnimeUserStatus(media_id, status)
 
 def getAnimeInfo():
     if PlexService._checkUserHasActiveSessions() == True: 
@@ -120,22 +94,24 @@ def getAnimeInfo():
 
     return None
 
-def addEpisode():
-    show_original_title = PlexService.getCompletedSessions()
-    episode_num = PlexService.getSessionDetails()
-    episode = episode_num['index']
-    if show_original_title != None:
-        userId = AnilistService.get_user_id()
-        animeId = AnilistService.getAnimeInfo(show_original_title)
-        AnilistService.getMediaUserStatus(userId , animeId) 
-        AnilistService.setStatusAnime(animeId, 'CURRENT')
-        AnilistService.setAnimeUserProgress(animeId, episode)
+def addEpisode(plexEpisodeViewed):
+    episode = plexEpisodeViewed['episode']
+    
+    if plexEpisodeViewed != None:
+        animeId = AnilistService.getAnimeId(plexEpisodeViewed['originalTitle'])
+        animeUser = AnilistService.getAnimeUser(userId, animeId)   
+        if animeUser['progress'] < episode:
+            if animeUser['status'] != 'CURRENT':
+                status = 'CURRENT'
+                return AnilistService.setAnimeUserStatus(animeUser['id'], status, episode)
+            else:
+                return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
+
     else:
-        print("No se ha podido añadir el episodio")
+        print(f"No se encuentra el nombre de {plexEpisodeViewed['originalTitle']}")
 
 # End point
 def isPortInUse(port):
-    """Check if a port is in use on the local machine."""
     for conn in psutil.net_connections():
         if conn.laddr.port == port:
             return True

@@ -66,7 +66,6 @@ def _askUserCredentials():
     return credentials
 
 def _saveUserCredentials(credentials):
-    # Guardar las credenciales en el archivo credentials.json
     credentials = {
         "CLIENT_ID": credentials.CLIENT_ID,
         "CLIENT_SECRET": credentials.CLIENT_SECRET,
@@ -97,58 +96,6 @@ def load_access_token():
 def notifyChange():
     print('hola')
 
-def setStatusAnime(media_id, status):
-    mutation = '''
-    mutation ($id: Int, $status: MediaListStatus) {
-        SaveMediaListEntry (mediaId: $id, status: $status) {
-            status
-        }
-    }
-    '''
-
-    variables = {'id': media_id, 'status ': status}
-
-    response = requests.post(url, json={'query': mutation, 'variables': variables}, headers=headers)
-
-    return response
-
-
-def getMediaUserStatus(user_id, anime_id):
-    query = '''
-    query ($userId: Int, $animeId: Int){
-        MediaList(userId: 6756519, mediaId: 99263) {
-            status
-            progress
-        }
-        }
-    }'''
-
-    
-    variables = {
-        "userId": user_id,
-        "animeId": anime_id
-    }
-    
-    response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
-    
-    if response.status_code == 200:
-        data = response.json()
-        if 'data' in data and 'MediaList' in data['data']:
-            mediaList = data['data']['MediaList']
-            media_user_status = {
-                'status': mediaList.get('status'),
-                'progress': mediaList['mediaList'][0].get('progress') if mediaList['mediaList'] else None
-            }
-            return media_user_status
-        else:
-            print('No se encontraron datos de anime')
-            return None
-    else:
-        print(f"Error en la solicitud: {response.status_code}")
-        return None
-    
-
-
 def getAnimeInfo(anime_full):    
     query = '''
     query ($search: String) {
@@ -178,8 +125,31 @@ def getAnimeInfo(anime_full):
         print(f"Error en la solicitud: {response.status_code}")
         return None
 
+def getAnimeId(anime_full):
+    query = '''
+    query ($search: String) {
+        Media(search: $search, type: ANIME) {
+            id
+        }
+    }
+    '''
+    variables = {"search": anime_full}
+    response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
 
-def get_user_id():
+    if response.status_code == 200:
+        data = response.json()
+        if 'data' in data and 'Media' in data['data']:
+            anime_id = data['data']['Media']['id']
+            return anime_id
+        else:
+            print('Anime info not found')
+            return None
+    else:
+        print(f"Error en la solicitud: {response.status_code}")
+        return None
+
+
+def getUserId():
     query = '''
     query {
         Viewer {
@@ -201,42 +171,52 @@ def get_user_id():
         print(f"Error en la solicitud: {response.status_code}")
         return None   
 
-
-def get_anime_user_progress(user_id, anime_id):
+def getAnimeUser(userId, animeId):
     query = '''
     query ($userId: Int, $animeId: Int) {
-        MediaListCollection(userId: $userId, type: ANIME, status: CURRENT) {
-            lists {
-                entries(mediaId: $animeId) {
-                    progress
-                }
-            }
+        MediaList(userId: $userId, type: ANIME, mediaId: $animeId) {
+            id
+            progress
+            status
         }
     }
     '''
 
-    variables = {'userId': user_id, 'animeId': anime_id}
+    variables = {'userId': userId, 'animeId': animeId}
 
     response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
 
     if response.status_code == 200:
         data = response.json()
-        progress = data['data']['MediaListCollection']['lists'][0]['entries'][0]['progress']
-        return progress
+        if 'errors' in data:
+            # Handle errors in the response
+            error_message = ', '.join([error['message'] for error in data['errors']])
+            raise Exception(f"Query failed with errors: {error_message}")
+        elif 'data' in data and 'MediaList' in data['data'] and data['data']['MediaList'] is not None:
+            return data['data']['MediaList']
+        else:
+            return None
     else:
         raise Exception(f"Query failed with status code {response.status_code}: {response.text}")
 
 
-def setAnimeUserProgress(media_id, progress):
+def setAnimeUserStatus(id, status, progress):
     mutation = '''
-    mutation ($id: Int, $status: MediaListStatus, $progress: Int) {
-        SaveMediaListEntry (mediaId: $id, status: CURRENT, progress: $progress) {
+    mutation ($id: Int, $status: MediaListStatus, $progress: Int){
+        SaveMediaListEntry (id: $id, status: $status, progress: $progress) {
             status
             progress
         }
     }
     '''
-    variables = {'id': media_id, 'progress': progress}
+
+    variables = {'id': id, 'status': status, 'progress': progress}
+
     response = requests.post(url, json={'query': mutation, 'variables': variables}, headers=headers)
 
-    return response
+    if response.status_code == 200:
+        return True
+    else:
+        raise Exception(f"Failed with status code {response.status_code}: {response.text}")
+
+
