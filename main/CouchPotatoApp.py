@@ -5,6 +5,9 @@ import psutil
 import webbrowser
 import PlexService
 import AnilistService
+import requests
+import re
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
@@ -95,20 +98,69 @@ def getAnimeInfo():
     return None
 
 def addEpisode(plexEpisodeViewed):
-    episode = plexEpisodeViewed['episode']
-    
+       
     if plexEpisodeViewed != None:
-        animeId = AnilistService.getAnimeId(plexEpisodeViewed['originalTitle'])
-        animeUser = AnilistService.getAnimeUser(userId, animeId)   
+        season = plexEpisodeViewed['season']
+        episode = plexEpisodeViewed['episode']
+        animeName = plexEpisodeViewed['originalTitle']
+        if season not in [0, 1]:
+            str(season)
+            animeFull = f"{animeName} {season}"
+        else:
+            animeFull = animeName
+    
+        animeInfo = AnilistService.getAnimeInfo(animeFull)
+        # Fallo crítico
+        animeId = animeInfo['id']
+        animeUser = AnilistService.getAnimeUser(userId, animeId)
+        if animeUser == None:
+            AnilistService.updateAnimeAndAddCurrent(animeId)
+            animeUser = AnilistService.getAnimeUser(userId, animeId)
+        if animeInfo['episodes'] == episode and animeUser['status'] == 'CURRENT':
+                  return AnilistService.setAnimeUserStatus(animeUser['id'], 'COMPLETED', episode)
         if animeUser['progress'] < episode:
-            if animeUser['status'] != 'CURRENT':
-                status = 'CURRENT'
-                return AnilistService.setAnimeUserStatus(animeUser['id'], status, episode)
-            else:
-                return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
-
+                if animeUser['status'] == 'CURRENT' or  animeUser['status'] == 'PAUSED' or  animeUser['status'] == 'PLANNING':
+                    return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
+                elif animeUser['status'] == 'DROPPED':
+                    print("Has abandonado el anime y no se puede añadir")
+                elif animeUser['status'] == 'REPEATING' or  animeUser['status'] == 'COMPLETED':
+                    return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
+        
     else:
         print(f"No se encuentra el nombre de {plexEpisodeViewed['originalTitle']}")
+
+# Need test
+def animeCorrectFormat(plexEpisodeViewed):
+    animeName = plexEpisodeViewed['title-slug']
+    website = "https://www.thetvdb.com/series/"
+    animeURL = website + animeName + '#seasons'
+    response = requests.get(animeURL)
+    content = response.text
+
+    pattern = r"/official/[\w-]*"
+    findSeasons = re.findall(pattern, str(content))
+    seasonsNumberList = []
+
+    for i in findSeasons:
+        seasonNumber = i.replace("/official/", "")
+        seasonsNumberList.append(seasonNumber)
+  
+    soup = BeautifulSoup(content, 'html.parser')
+    tabla_temporadas = soup.find('table', class_='table table-bordered table-hover table-colored')
+    episodesForSeason = []
+
+    for fila in tabla_temporadas.find_all('tr'):
+        columnas = fila.find_all('td')
+        if columnas and len(columnas) == 4:
+            temporada = columnas[0].text.strip()
+            if temporada not in ["Specials", "All Seasons", "Unassigned Episodes"]:
+                numero_capitulos = columnas[3].text.strip()
+                episodesForSeason.append(numero_capitulos)
+
+        temporada_actual = 3 
+        capitulo_actual = 12  
+        capitulo_global = sum(episodesForSeason[:temporada_actual - 1]) + capitulo_actual
+        print(capitulo_global)  
 
 # End point
 def isPortInUse(port):

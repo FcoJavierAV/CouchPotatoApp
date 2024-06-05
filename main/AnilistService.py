@@ -112,35 +112,7 @@ def getAnimeInfo(anime_full):
     if response.status_code == 200:
         data = response.json()
         if 'data' in data and 'Media' in data['data']:
-            anime_info = data['data']['Media']
-            return {
-                'id': anime_info['id'],
-                'episodes': anime_info['episodes'],
-                'format': anime_info['format']
-            }
-        else:
-            print('Anime info not found')
-            return None
-    else:
-        print(f"Error en la solicitud: {response.status_code}")
-        return None
-
-def getAnimeId(anime_full):
-    query = '''
-    query ($search: String) {
-        Media(search: $search, type: ANIME) {
-            id
-        }
-    }
-    '''
-    variables = {"search": anime_full}
-    response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
-
-    if response.status_code == 200:
-        data = response.json()
-        if 'data' in data and 'Media' in data['data']:
-            anime_id = data['data']['Media']['id']
-            return anime_id
+            return data['data']['Media']    
         else:
             print('Anime info not found')
             return None
@@ -196,6 +168,8 @@ def getAnimeUser(userId, animeId):
             return data['data']['MediaList']
         else:
             return None
+    elif response.status_code == 404:
+        return None
     else:
         raise Exception(f"Query failed with status code {response.status_code}: {response.text}")
 
@@ -219,4 +193,27 @@ def setAnimeUserStatus(id, status, progress):
     else:
         raise Exception(f"Failed with status code {response.status_code}: {response.text}")
 
+def updateAnimeAndAddCurrent(animeId):
+    mutation = '''
+    mutation ($animeId: Int) {
+        SaveMediaListEntry(mediaId: $animeId, status: CURRENT) {
+            id
+            status
+        }
+    }
+    '''
+    variables = {'animeId': animeId}
 
+    response = requests.post(url, json={'query': mutation, 'variables': variables}, headers=headers)
+
+    if response.status_code == 200:
+            data = response.json()
+            if 'errors' in data:
+                error_message = ', '.join([error['message'] for error in data['errors']])
+                raise Exception(f"Mutation failed with errors: {error_message}")
+            elif 'data' in data and 'SaveMediaListEntry' in data['data']:
+                return data['data']['SaveMediaListEntry']
+            else:
+                return None
+    else:
+        raise Exception(f"Mutation failed with status code {response.status_code}: {response.text}")
