@@ -108,9 +108,14 @@ def addEpisode(plexEpisodeViewed):
             animeFull = f"{animeName} {season}"
         else:
             animeFull = animeName
-    
+        # Fallo crítico   SEASONSYEAR devuelve o buscas por la fecha
         animeInfo = AnilistService.getAnimeInfo(animeFull)
-        # Fallo crítico
+        # dos posibilidades
+        # 1. Primera temporada del anime (nº capitulos pequeño)
+        # 2. Todo el anime (sin tener en cuenta arcos, muchos episodios)
+        # Muchos episodios significa más episodios que los de la temporada 1
+
+        
         animeId = animeInfo['id']
         animeUser = AnilistService.getAnimeUser(userId, animeId)
         if animeUser == None:
@@ -129,38 +134,40 @@ def addEpisode(plexEpisodeViewed):
     else:
         print(f"No se encuentra el nombre de {plexEpisodeViewed['originalTitle']}")
 
-# Need test
-def animeCorrectFormat(plexEpisodeViewed):
-    animeName = plexEpisodeViewed['title-slug']
+def getAbsoluteEpisode(currentSeason, currentEpisode, animeName): 
+    return sum(animeListAllEpisode(animeName)[:currentSeason - 1]) + currentEpisode
+
+def animeListAllEpisode(animeTitle):
+    soup = BeautifulSoup(getWebScrapingHTMLContent(animeTitle), 'html.parser')
+    seasonTable = soup.find('table', class_='table table-bordered table-hover table-colored')
+    episodesForSeason = []
+    for fila in seasonTable.find_all('tr'):
+        columns = fila.find_all('td')
+        if columns and len(columns) == 4:
+            season = columns[0].text.strip()
+            if season not in ["Specials", "All Seasons", "Unassigned Episodes"]:
+                episodesNumber = columns[3].text.strip()
+                episodesForSeason.append(episodesNumber)
+    
+    return episodesForSeason
+
+def seasonNumTVDB(animeTitle):
+    pattern = r"/official/[\w-]*"
+    findSeasons = re.findall(pattern, str(getWebScrapingHTMLContent(animeTitle)))
+    seasonsNumberList = []
+    for i in findSeasons:
+        seasonNumber = i.replace("/official/", "")
+        seasonsNumberList.append(seasonNumber)
+    
+    return seasonsNumberList
+
+def getWebScrapingHTMLContent(animeTitle):
+    animeName = animeTitle
     website = "https://www.thetvdb.com/series/"
     animeURL = website + animeName + '#seasons'
     response = requests.get(animeURL)
     content = response.text
-
-    pattern = r"/official/[\w-]*"
-    findSeasons = re.findall(pattern, str(content))
-    seasonsNumberList = []
-
-    for i in findSeasons:
-        seasonNumber = i.replace("/official/", "")
-        seasonsNumberList.append(seasonNumber)
-  
-    soup = BeautifulSoup(content, 'html.parser')
-    tabla_temporadas = soup.find('table', class_='table table-bordered table-hover table-colored')
-    episodesForSeason = []
-
-    for fila in tabla_temporadas.find_all('tr'):
-        columnas = fila.find_all('td')
-        if columnas and len(columnas) == 4:
-            temporada = columnas[0].text.strip()
-            if temporada not in ["Specials", "All Seasons", "Unassigned Episodes"]:
-                numero_capitulos = columnas[3].text.strip()
-                episodesForSeason.append(numero_capitulos)
-
-        temporada_actual = 3 
-        capitulo_actual = 12  
-        capitulo_global = sum(episodesForSeason[:temporada_actual - 1]) + capitulo_actual
-        print(capitulo_global)  
+    return content
 
 # End point
 def isPortInUse(port):
