@@ -23,7 +23,7 @@ account_connection = None
 plex_server = None
 
 class PlexSession:
-    def __init__(self, rating_key, serie_name, episode_number, season_title, season_number, duration, viewOffset, grandparentSlug):
+    def __init__(self, rating_key, serie_name, episode_number, season_title, season_number, duration, viewOffset, grandparentSlug, year):
         self.rating_key = rating_key
         self.serie_name = serie_name
         self.episode_number = episode_number
@@ -32,6 +32,7 @@ class PlexSession:
         self.duration = duration
         self.viewOffset = viewOffset
         self.grandparentSlug = grandparentSlug
+        self.year = year
 
     def toString(self):   
         return f'Titulo de la serie: {self.serie_name} Numero de capitulo: {self.episode_number} Titulo de la temporada: {self.season_title} Numero de temporada: {self.season_number}'
@@ -51,9 +52,9 @@ def connectServer(self, credentials):
     self.account_connection = account.resource(SERVER_NAME).connect()
     self.plex_server = PlexServer(PLEX_URL, PLEX_TOKEN)
 
-#2. Obtener sessions (funciones propias)
+#2. Obtener sessions (funciones propias) 
 def getCompletedSessions():
-    if _checkUserHasActiveSessions():
+    if _checkUserHasActiveSessions():  #----------> ARREGLAR <-------
         # Obtener las sesiones activas
         sessions = account_connection.sessions()
         # Verificar si hay sesiones activas
@@ -70,7 +71,8 @@ def getCompletedSessions():
                         return {'originalTitle': show.originalTitle,
                                 'season': plex_session.season_number,
                                 'episode': plex_session.episode_number,
-                                'title-slug': plex_session.grandparentSlug}                             
+                                'title-slug': plex_session.grandparentSlug,
+                                'year': plex_session.year}                             
         else:
             print(' * No hay sesiones de medios activas en este momento.')
     else:

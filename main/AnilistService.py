@@ -92,21 +92,55 @@ def load_access_token():
         os.makedirs(TOKEN_DIR, exist_ok=True)
         return None
 
-
-def notifyChange():
-    print('hola')
-
 def getAnimeInfo(anime_full):    
     query = '''
-    query ($search: String) {
+    query ($search: String, $year: Int) {
         Media(search: $search, type: ANIME) {
             id
             episodes
             format
+            status
+            startDate{
+            year
+            }
+            endDate{
+            year
+            }        
         }
     }
     '''
     variables = {"search": anime_full}
+    response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        if 'data' in data and 'Media' in data['data']:
+            return data['data']['Media']    
+        else:
+            print('Anime info not found')
+            return None
+    else:
+        print(f"Error en la solicitud: {response.status_code}")
+        return None
+
+def getAnimeInfoDetail(animeFull, year):
+    query = '''
+    query ($search: String, $year: Int) {
+        Media(search: $search, type: ANIME, seasonYear: $year) {
+            id
+            episodes
+            format
+            status 
+            startDate{
+            year
+            }
+            endDate{
+            year
+            }
+        }
+    }
+    '''
+    variables = {"search": animeFull, "year": year}
     response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
 
     if response.status_code == 200:

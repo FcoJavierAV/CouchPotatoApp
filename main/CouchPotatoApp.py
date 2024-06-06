@@ -5,16 +5,15 @@ import psutil
 import webbrowser
 import PlexService
 import AnilistService
-import requests
-import re
-from bs4 import BeautifulSoup
+import TVDBService
 
 app = Flask(__name__)
 
-plex_credentials = PlexService.getCredentials()
-PlexService.connectServer(PlexService, plex_credentials)
-anilist_credentials = AnilistService.init(AnilistService)
+plexCredentials = PlexService.getCredentials()
+PlexService.connectServer(PlexService, plexCredentials)
+anilistCredentials = AnilistService.init(AnilistService)
 userId = AnilistService.getUserId()
+TVDBCredentials = TVDBService.init(TVDBService)
 
 def completeSessionTask():
     lastPlexEpisodeViewed = None
@@ -39,7 +38,7 @@ def home():
 
 @app.route('/login')
 def login():
-    authorization_url = f"https://anilist.co/api/v2/oauth/authorize?client_id={anilist_credentials['CLIENT_ID']}&redirect_uri={anilist_credentials['REDIRECT_URI']}&response_type=code"
+    authorization_url = f"https://anilist.co/api/v2/oauth/authorize?client_id={anilistCredentials['CLIENT_ID']}&redirect_uri={anilistCredentials['REDIRECT_URI']}&response_type=code"
     return redirect(authorization_url)
 
 @app.route('/callback')
@@ -47,36 +46,7 @@ def callback():
     code = request.args.get('code')
     if not code:
         return jsonify({'error': 'No authorization code provided'}), 400
-    AnilistService.getToken(AnilistService, anilist_credentials, code)
-    
-#Función prueba    
-def toStringAnimeInfo():
-    anime_name = PlexService.getCompletedSessions()
-    anime_info = AnilistService.getAnimeInfo(anime_name)
-    if anime_info:
-        print(f"Información del anime {anime_name}:")
-        print(f"ID: {anime_info['id']}")
-        print(f"Título (inglés): {anime_info['title']['english']}")
-        print(f"Título (romaji): {anime_info['title']['romaji']}")
-        print(f"Título (nativo): {anime_info['title']['native']}")
-        print(f"Episodios: {anime_info['episodes']}")
-        print(f"Formato: {anime_info['format']}")
-        print(f"Estado: {anime_info['status']}")
-    else:
-        print(f"No se encontró información para el anime {anime_name}")
-
-
-def setAnimeUserProgress():
-    if PlexService._checkUserHasActiveSessions() == True:
-        animeId = AnilistService.getAnimeId()
-        episode_num = PlexService.getSessionDetails()
-        episode = episode_num['index']
-
-        AnilistService.setAnimeUserProgress(animeId, episode)
-
-def setAnimeComplete(media_id):
-    status = "COMPLETED"
-    AnilistService.setAnimeUserStatus(media_id, status)
+    AnilistService.getToken(AnilistService, anilistCredentials, code)   
 
 def getAnimeInfo():
     if PlexService._checkUserHasActiveSessions() == True: 
@@ -97,78 +67,70 @@ def getAnimeInfo():
 
     return None
 
-def addEpisode(plexEpisodeViewed):
-       
+def addEpisode(plexEpisodeViewed):     
     if plexEpisodeViewed != None:
         season = plexEpisodeViewed['season']
         episode = plexEpisodeViewed['episode']
         animeName = plexEpisodeViewed['originalTitle']
-        if season not in [0, 1]:
-            str(season)
-            animeFull = f"{animeName} {season}"
-        else:
-            animeFull = animeName
+        
         # Fallo crítico   SEASONSYEAR devuelve o buscas por la fecha
-        animeInfo = AnilistService.getAnimeInfo(animeFull)
+        animeInfo = AnilistService.getAnimeInfo(animeName)
+        episodesInSeasons = getCountAnimeEpisodesForSeason(animeName, season)
+
+        if animeInfo['episodes'] == episodesInSeasons:
+            if season not in [0, 1]:
+                str(season)
+                animeFull = f"{animeName} {season}"
+            else:
+                animeFull = animeName
+            animeInfo = AnilistService.getAnimeInfo(animeFull)
+
+        else:
+            pass           
         # dos posibilidades
         # 1. Primera temporada del anime (nº capitulos pequeño)
         # 2. Todo el anime (sin tener en cuenta arcos, muchos episodios)
         # Muchos episodios significa más episodios que los de la temporada 1
+        #animeInfoDetail = AnilistService.getAnimeInfoDetail(animeFull)
 
-        
-        animeId = animeInfo['id']
-        animeUser = AnilistService.getAnimeUser(userId, animeId)
-        if animeUser == None:
-            AnilistService.updateAnimeAndAddCurrent(animeId)
-            animeUser = AnilistService.getAnimeUser(userId, animeId)
-        if animeInfo['episodes'] == episode and animeUser['status'] == 'CURRENT':
-                  return AnilistService.setAnimeUserStatus(animeUser['id'], 'COMPLETED', episode)
-        if animeUser['progress'] < episode:
-                if animeUser['status'] == 'CURRENT' or  animeUser['status'] == 'PAUSED' or  animeUser['status'] == 'PLANNING':
-                    return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
-                elif animeUser['status'] == 'DROPPED':
-                    print("Has abandonado el anime y no se puede añadir")
-                elif animeUser['status'] == 'REPEATING' or  animeUser['status'] == 'COMPLETED':
-                    return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
+        if plexEpisodeViewed['year'] >= animeInfo['startDate']['year'] and plexEpisodeViewed['year'] <= animeInfo['endDate']['year']:
+            print("Estas dentro de la temporada")  
+        else:
+            print("Estas fuera de esta temporada")   
+
+        setAnimeProgress(animeInfo, episode)
         
     else:
-        print(f"No se encuentra el nombre de {plexEpisodeViewed['originalTitle']}")
+        print(f"No se encuentra el objeto {plexEpisodeViewed}")
 
-def getAbsoluteEpisode(currentSeason, currentEpisode, animeName): 
-    return sum(animeListAllEpisode(animeName)[:currentSeason - 1]) + currentEpisode
+def getCountAnimeEpisodesForSeason(showOriginalTitle, season):   
+    TVDBAnimeId = TVDBService.getAnimeInfo(showOriginalTitle)
+    allEpisodesForSeason = TVDBService.getSeasonEpisodes(TVDBAnimeId, season)
 
-def animeListAllEpisode(animeTitle):
-    soup = BeautifulSoup(getWebScrapingHTMLContent(animeTitle), 'html.parser')
-    seasonTable = soup.find('table', class_='table table-bordered table-hover table-colored')
-    episodesForSeason = []
-    for fila in seasonTable.find_all('tr'):
-        columns = fila.find_all('td')
-        if columns and len(columns) == 4:
-            season = columns[0].text.strip()
-            if season not in ["Specials", "All Seasons", "Unassigned Episodes"]:
-                episodesNumber = columns[3].text.strip()
-                episodesForSeason.append(episodesNumber)
-    
-    return episodesForSeason
+    return allEpisodesForSeason
 
-def seasonNumTVDB(animeTitle):
-    pattern = r"/official/[\w-]*"
-    findSeasons = re.findall(pattern, str(getWebScrapingHTMLContent(animeTitle)))
-    seasonsNumberList = []
-    for i in findSeasons:
-        seasonNumber = i.replace("/official/", "")
-        seasonsNumberList.append(seasonNumber)
-    
-    return seasonsNumberList
+def isAnimeGeneric(animeName, season):
+    episodesInSeasons = getCountAnimeEpisodesForSeason(animeName, season)
 
-def getWebScrapingHTMLContent(animeTitle):
-    animeName = animeTitle
-    website = "https://www.thetvdb.com/series/"
-    animeURL = website + animeName + '#seasons'
-    response = requests.get(animeURL)
-    content = response.text
-    return content
+    return False
 
+
+def setAnimeProgress(animeInfo, episode):
+    animeId = animeInfo['id']
+    animeUser = AnilistService.getAnimeUser(userId, animeId)
+    if animeUser == None:
+        AnilistService.updateAnimeAndAddCurrent(animeId)
+        animeUser = AnilistService.getAnimeUser(userId, animeId)
+    if animeInfo['episodes'] == episode and animeUser['status'] == 'CURRENT':
+                return AnilistService.setAnimeUserStatus(animeUser['id'], 'COMPLETED', episode)
+    elif animeUser['progress'] < episode:
+            if animeUser['status'] == 'CURRENT' or  animeUser['status'] == 'PAUSED' or  animeUser['status'] == 'PLANNING':
+                return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
+            elif animeUser['status'] == 'DROPPED':
+                print("Has abandonado el anime y no se puede añadir")
+            elif animeUser['status'] == 'REPEATING' or  animeUser['status'] == 'COMPLETED':
+                return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
+        
 # End point
 def isPortInUse(port):
     for conn in psutil.net_connections():
