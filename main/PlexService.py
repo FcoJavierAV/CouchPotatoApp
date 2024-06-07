@@ -63,7 +63,7 @@ def getCompletedSessions():
             # Iterar sobre cada sesión de medios activa
             for session in sessions:
                 # Obtener los detalles de la sesión
-                plex_session = PlexSession(session.key, session.grandparentTitle, session.index, session.parentTitle, session.parentIndex, session.duration, session.viewOffset)
+                plex_session = PlexSession(session.key, session.grandparentTitle, session.index, session.parentTitle, session.parentIndex, session.duration, session.viewOffset, session.year, session.grandparentSlug)
                 sessions_list.append(plex_session)
                 if _percentajeComplete(plex_session.viewOffset, plex_session.duration):
                     show = _getShow(plex_session)                    

@@ -73,7 +73,7 @@ def addEpisode(plexEpisodeViewed):
         animeName = plexEpisodeViewed['originalTitle']
         animeYearEpisode = plexEpisodeViewed['year']
 
-        if isAnimeGeneric(animeName, animeYearEpisode) == True:
+        if isAnimeGeneric(animeName, animeYearEpisode, episode) == True:
             if season not in [0, 1]:
                 str(season)
                 animeFull = f"{animeName} {season}"
@@ -102,11 +102,14 @@ def getCountAnimeEpisodesForSeason(showOriginalTitle, season):
 
     return allEpisodesForSeason
 
-def isAnimeGeneric(animeName, yearAnimeChapter):
-    animeInfo = AnilistService.getAnimeInfo(animeName)    
-    if yearAnimeChapter >= animeInfo['startDate']['year'] and yearAnimeChapter <= animeInfo["endDate"]["year"] and yearAnimeChapter <= animeInfo['episodes']:
-        return True  
-    return False
+def isAnimeGeneric(animeName, yearAnimeChapter, episode):
+    animeInfo = AnilistService.getAnimeInfo(animeName)
+    startDate = animeInfo['startDate']['year']
+    endDate = animeInfo["endDate"]["year"]
+    totalEpisodes = animeInfo['episodes']
+
+    return yearAnimeChapter >= startDate and yearAnimeChapter <= endDate and episode <= totalEpisodes
+ 
 
 def animeYearChecker(episodeYear, animeInfo):
     if episodeYear >= animeInfo['startDate']['year'] and episodeYear <= animeInfo['endDate']['year']:

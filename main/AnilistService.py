@@ -94,7 +94,7 @@ def loadAccessToken():
 
 def getAnimeInfo(anime_full):    
     query = '''
-    query ($search: String, $year: Int) {
+    query ($search: String) {
         Media(search: $search, type: ANIME) {
             id
             episodes
@@ -116,7 +116,7 @@ def getAnimeInfo(anime_full):
     if response.status_code == 200:
         data = response.json()
         if 'data' in data and 'Media' in data['data']:
-            return data['data']['Media']    
+            return data['data']['Media']  
         else:
             print('Anime info not found')
             return None
