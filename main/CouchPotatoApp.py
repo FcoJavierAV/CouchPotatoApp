@@ -13,7 +13,6 @@ plexCredentials = PlexService.getCredentials()
 PlexService.connectServer(PlexService, plexCredentials)
 anilistCredentials = AnilistService.init(AnilistService)
 userId = AnilistService.getUserId()
-TVDBCredentials = TVDBService.init(TVDBService)
 
 def completeSessionTask():
     lastPlexEpisodeViewed = None
@@ -72,34 +71,28 @@ def addEpisode(plexEpisodeViewed):
         season = plexEpisodeViewed['season']
         episode = plexEpisodeViewed['episode']
         animeName = plexEpisodeViewed['originalTitle']
-        
-        # Fallo crítico   SEASONSYEAR devuelve o buscas por la fecha
-        animeInfo = AnilistService.getAnimeInfo(animeName)
-        episodesInSeasons = getCountAnimeEpisodesForSeason(animeName, season)
+        animeYearEpisode = plexEpisodeViewed['year']
 
-        if animeInfo['episodes'] == episodesInSeasons:
+        if isAnimeGeneric(animeName, animeYearEpisode) == True:
             if season not in [0, 1]:
                 str(season)
                 animeFull = f"{animeName} {season}"
             else:
                 animeFull = animeName
             animeInfo = AnilistService.getAnimeInfo(animeFull)
-
+            setAnimeProgress(animeInfo, episode)
         else:
-            pass           
+
+            year = animeYearChecker(animeYearEpisode, animeInfo)
+            animeInfoDetail = AnilistService.getAnimeInfoDetail(animeName, year)
+            return animeInfoDetail
+
         # dos posibilidades
         # 1. Primera temporada del anime (nº capitulos pequeño)
         # 2. Todo el anime (sin tener en cuenta arcos, muchos episodios)
         # Muchos episodios significa más episodios que los de la temporada 1
         #animeInfoDetail = AnilistService.getAnimeInfoDetail(animeFull)
 
-        if plexEpisodeViewed['year'] >= animeInfo['startDate']['year'] and plexEpisodeViewed['year'] <= animeInfo['endDate']['year']:
-            print("Estas dentro de la temporada")  
-        else:
-            print("Estas fuera de esta temporada")   
-
-        setAnimeProgress(animeInfo, episode)
-        
     else:
         print(f"No se encuentra el objeto {plexEpisodeViewed}")
 
@@ -109,11 +102,17 @@ def getCountAnimeEpisodesForSeason(showOriginalTitle, season):
 
     return allEpisodesForSeason
 
-def isAnimeGeneric(animeName, season):
-    episodesInSeasons = getCountAnimeEpisodesForSeason(animeName, season)
-
+def isAnimeGeneric(animeName, yearAnimeChapter):
+    animeInfo = AnilistService.getAnimeInfo(animeName)    
+    if yearAnimeChapter >= animeInfo['startDate']['year'] and yearAnimeChapter <= animeInfo["endDate"]["year"] and yearAnimeChapter <= animeInfo['episodes']:
+        return True  
     return False
 
+def animeYearChecker(episodeYear, animeInfo):
+    if episodeYear >= animeInfo['startDate']['year'] and episodeYear <= animeInfo['endDate']['year']:
+        return  animeInfo['startDate']['year']
+    else:
+        print('Error de chequeo')    
 
 def setAnimeProgress(animeInfo, episode):
     animeId = animeInfo['id']

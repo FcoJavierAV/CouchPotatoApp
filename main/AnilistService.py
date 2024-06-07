@@ -21,7 +21,7 @@ def setHeader(self):
     }
 
 def init(self):
-    self.token = load_access_token()
+    self.token = loadAccessToken()
     if token == None:
         return _getCredentials()
     setHeader(self)
@@ -84,7 +84,7 @@ def save_access_token(token):
     with open(TOKEN_FILE, 'w') as file:
         file.write(token)
 
-def load_access_token():
+def loadAccessToken():
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, 'r') as file:
             return file.read().strip()
@@ -100,6 +100,7 @@ def getAnimeInfo(anime_full):
             episodes
             format
             status
+            seasonYear
             startDate{
             year
             }

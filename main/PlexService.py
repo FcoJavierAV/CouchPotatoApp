@@ -23,7 +23,7 @@ account_connection = None
 plex_server = None
 
 class PlexSession:
-    def __init__(self, rating_key, serie_name, episode_number, season_title, season_number, duration, viewOffset, grandparentSlug, year):
+    def __init__(self, rating_key, serie_name, episode_number, season_title, season_number, duration, viewOffset, year, grandparentSlug):
         self.rating_key = rating_key
         self.serie_name = serie_name
         self.episode_number = episode_number
@@ -31,8 +31,8 @@ class PlexSession:
         self.season_number = season_number
         self.duration = duration
         self.viewOffset = viewOffset
-        self.grandparentSlug = grandparentSlug
         self.year = year
+        self.grandparentSlug = grandparentSlug
 
     def toString(self):   
         return f'Titulo de la serie: {self.serie_name} Numero de capitulo: {self.episode_number} Titulo de la temporada: {self.season_title} Numero de temporada: {self.season_number}'
@@ -71,8 +71,8 @@ def getCompletedSessions():
                         return {'originalTitle': show.originalTitle,
                                 'season': plex_session.season_number,
                                 'episode': plex_session.episode_number,
-                                'title-slug': plex_session.grandparentSlug,
-                                'year': plex_session.year}                             
+                                'year': plex_session.year,
+                                'titleSlug': plex_session.grandparentSlug}                             
         else:
             print(' * No hay sesiones de medios activas en este momento.')
     else:
