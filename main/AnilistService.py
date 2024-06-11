@@ -130,6 +130,9 @@ def getAnimeInfoDetail(animeFull, year):
         Media(search: $search, type: ANIME, seasonYear: $year) {
             id
             episodes
+            title{
+            native
+            }
             format
             status 
             startDate{

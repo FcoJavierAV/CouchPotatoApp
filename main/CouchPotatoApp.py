@@ -70,37 +70,14 @@ def addEpisode(plexEpisodeViewed):
     if plexEpisodeViewed != None:
         season = plexEpisodeViewed['season']
         episode = plexEpisodeViewed['episode']
-        animeName = plexEpisodeViewed['originalTitle']
+        animeName = plexEpisodeViewed['titleSlug']
         animeYearEpisode = plexEpisodeViewed['year']
+        animeInfo = AnilistService.getAnimeInfo(animeName)
 
-        if isAnimeGeneric(animeName, animeYearEpisode, episode) == True:
-            if season not in [0, 1]:
-                str(season)
-                animeFull = f"{animeName} {season}"
-            else:
-                animeFull = animeName
-            animeInfo = AnilistService.getAnimeInfo(animeFull)
-            setAnimeProgress(animeInfo, episode)
-        else:
-
-            year = animeYearChecker(animeYearEpisode, animeInfo)
-            animeInfoDetail = AnilistService.getAnimeInfoDetail(animeName, year)
-            return animeInfoDetail
-
-        # dos posibilidades
-        # 1. Primera temporada del anime (nº capitulos pequeño)
-        # 2. Todo el anime (sin tener en cuenta arcos, muchos episodios)
-        # Muchos episodios significa más episodios que los de la temporada 1
-        #animeInfoDetail = AnilistService.getAnimeInfoDetail(animeFull)
+        animeChecker(animeName, animeYearEpisode, animeInfo, season, episode)
 
     else:
         print(f"No se encuentra el objeto {plexEpisodeViewed}")
-
-def getCountAnimeEpisodesForSeason(showOriginalTitle, season):   
-    TVDBAnimeId = TVDBService.getAnimeInfo(showOriginalTitle)
-    allEpisodesForSeason = TVDBService.getSeasonEpisodes(TVDBAnimeId, season)
-
-    return allEpisodesForSeason
 
 def isAnimeGeneric(animeName, yearAnimeChapter, episode):
     animeInfo = AnilistService.getAnimeInfo(animeName)
@@ -109,13 +86,46 @@ def isAnimeGeneric(animeName, yearAnimeChapter, episode):
     totalEpisodes = animeInfo['episodes']
 
     return yearAnimeChapter >= startDate and yearAnimeChapter <= endDate and episode <= totalEpisodes
- 
 
-def animeYearChecker(episodeYear, animeInfo):
-    if episodeYear >= animeInfo['startDate']['year'] and episodeYear <= animeInfo['endDate']['year']:
-        return  animeInfo['startDate']['year']
+def animeChecker(animeName, episodeYear, animeInfo, season, episode):
+    startDate = animeInfo["startDate"]["year"]
+    endDate = animeInfo["endDate"]["year"]
+    allEpisodes = animeInfo["episodes"]
+
+    if episodeYear >= startDate and episodeYear <= endDate:
+        episodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season)
+        if allEpisodes != episodes:
+            setUpdateAnime(animeInfo, animeName, season, episode)
+        else:
+            setAnimeProgress(animeName, episode)
+
+    elif episodeYear > endDate:
+        year = TVDBService.getNextSeasonDate(animeName, startDate, endDate)
+        animeInfoNew = AnilistService.getAnimeInfoDetail(animeName, year)
+        episodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season)
+        startDateNew = animeInfoNew["startDate"]["year"]
+        endDateNew = animeInfoNew["endDate"]["year"]
+        totalEpisodes = animeInfoNew["episodes"]
+        animeNameNew = animeInfoNew["title"]["native"]
+
+        if totalEpisodes != episodes:
+            seasonNum = TVDBService.getNextSeasonNum(animeName, startDateNew, endDateNew)
+            modifySeason = season - seasonNum
+            setUpdateAnime(animeInfoNew, animeNameNew, modifySeason, episode)
+        else:
+            setAnimeProgress(animeNameNew, episode)
+    '''
+    Comprar que los datos de TVDB coincidan con los de anilist
+    Se pretende buscar la primera vez con el nombre del show genérico y ya con el año de ese cap trabajamos
+    A partir de ahora no tomaremos el numero de la season para hacer la busqueda ya que es muy subjetivo
+    Asique usaremos el año de ese episodio y lo formateamos si es necesario
+    '''
+def setUpdateAnime(animeInfo, animeName, season, episode): 
+    if season > 1:
+        absoluteEpisode = TVDBService.getAbsoluteEpisode(animeName, season, episode)
+        setAnimeProgress(animeInfo, absoluteEpisode)
     else:
-        print('Error de chequeo')    
+        setAnimeProgress(animeInfo, episode)
 
 def setAnimeProgress(animeInfo, episode):
     animeId = animeInfo['id']
@@ -139,7 +149,6 @@ def isPortInUse(port):
         if conn.laddr.port == port:
             return True
     return False   
-
 
 def openBrowser():
     url = 'http://localhost:5000'
