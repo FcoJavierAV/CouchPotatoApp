@@ -6,30 +6,34 @@ import webbrowser
 import PlexService
 import AnilistService
 import TVDBService
+import CouchPotatoApp
 
 app = Flask(__name__)
+anilistCredentials = None
+userId = None
 
-plexCredentials = PlexService.getCredentials()
-PlexService.connectServer(PlexService, plexCredentials)
-anilistCredentials = AnilistService.init(AnilistService)
-userId = AnilistService.getUserId()
+def startCouchPotatoApp(self):
+    plexCredentials = PlexService.getCredentials()
+    PlexService.connectServer(PlexService, plexCredentials)
+    self.anilistCredentials = AnilistService.init(AnilistService)
+    self.userId = AnilistService.getUserId()
+    mainThread = threading.Thread(target=completeSessionTask)
+    mainThread.start()
 
-def completeSessionTask():
-    lastPlexEpisodeViewed = None
+def completeSessionTask():#TODO: Think if it is convenient to change this to a file
     while True:
-        plexEpisodeViewed = PlexService.getCompletedSessions()
-        if plexEpisodeViewed != None and lastPlexEpisodeViewed != plexEpisodeViewed:
-            print("Episodio completado")
-            if (addEpisode(plexEpisodeViewed)):
-                lastPlexEpisodeViewed = plexEpisodeViewed
-                plexEpisodeViewed = None
-        else:
-            print("No esta terminando")
+        checkCompletedSessions(None)
         time.sleep(5)
 
-
-mainThread = threading.Thread(target=completeSessionTask)
-mainThread.start()
+def checkCompletedSessions(lastPlexEpisodeViewed):
+    plexEpisodeViewed = PlexService.getCompletedSessions()
+    if plexEpisodeViewed != None and lastPlexEpisodeViewed != plexEpisodeViewed:
+        print("Episodio completado")
+        if (addEpisode(plexEpisodeViewed)):
+            lastPlexEpisodeViewed = plexEpisodeViewed
+            plexEpisodeViewed = None
+    else:
+        print("No esta terminando")
 
 @app.route('/')
 def home():
@@ -37,7 +41,7 @@ def home():
 
 @app.route('/login')
 def login():
-    authorization_url = f"https://anilist.co/api/v2/oauth/authorize?client_id={anilistCredentials['CLIENT_ID']}&redirect_uri={anilistCredentials['REDIRECT_URI']}&response_type=code"
+    authorization_url = f"https://anilist.co/api/v2/oauth/authorize?client_id={CouchPotatoApp.anilistCredentials['CLIENT_ID']}&redirect_uri={CouchPotatoApp.anilistCredentials['REDIRECT_URI']}&response_type=code"
     return redirect(authorization_url)
 
 @app.route('/callback')
@@ -45,26 +49,7 @@ def callback():
     code = request.args.get('code')
     if not code:
         return jsonify({'error': 'No authorization code provided'}), 400
-    AnilistService.getToken(AnilistService, anilistCredentials, code)   
-
-def getAnimeInfo():
-    if PlexService._checkUserHasActiveSessions() == True: 
-        plex_viewed_episode = PlexService.getCompletedSessions()
-        season_num = PlexService.getSessionDetails()
-        season = season_num['parentIndex']
-        anime_name = plex_viewed_episode
-        if season not in [0, 1]:
-            str(season)
-            anime_full = f"{anime_name} {season}"
-        else:
-            anime_full = anime_name
-
-        if not anime_full:
-            return jsonify({'error': 'Anime name is required'}), 400
-
-        return AnilistService.getAnimeInfo(anime_full)
-
-    return None
+    AnilistService.getToken(AnilistService, CouchPotatoApp.anilistCredentials, code)   
 
 def addEpisode(plexEpisodeViewed):     
     if plexEpisodeViewed != None:
@@ -74,7 +59,7 @@ def addEpisode(plexEpisodeViewed):
         animeYearEpisode = plexEpisodeViewed['year']
         animeInfo = AnilistService.getAnimeInfo(animeName)
 
-        animeChecker(animeName, animeYearEpisode, animeInfo, season, episode)
+        return animeChecker(animeName, animeYearEpisode, animeInfo, season, episode)
 
     else:
         print(f"No se encuentra el objeto {plexEpisodeViewed}")
@@ -95,27 +80,27 @@ def animeChecker(animeName, episodeYear, animeInfo, season, episode):
     if episodeYear >= startDate and episodeYear <= endDate:
         episodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season)
         if allEpisodes != episodes:
-            setUpdateAnime(animeInfo, animeName, season, episode)
+            return setUpdateAnime(animeInfo, animeName, season, episode)
         else:
-            setAnimeProgress(animeName, episode)
+            return setAnimeProgress(animeInfo, episode)
 
     elif episodeYear > endDate:
-        year = TVDBService.getNextSeasonDate(animeName, startDate, endDate)
+        year = TVDBService.getSeasonFromEpisodeYear(animeName, episodeYear)
         animeInfoNew = AnilistService.getAnimeInfoDetail(animeName, year)
         episodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season)
-        startDateNew = animeInfoNew["startDate"]["year"]
         endDateNew = animeInfoNew["endDate"]["year"]
         totalEpisodes = animeInfoNew["episodes"]
-        animeNameNew = animeInfoNew["title"]["native"]
 
-        if totalEpisodes != episodes:
-            seasonNum = TVDBService.getNextSeasonNum(animeName, startDateNew, endDateNew)
+        if totalEpisodes > episodes:
+            seasonNum = TVDBService.getNextSeasonNum(animeName, endDateNew)
             modifySeason = season - seasonNum
-            setUpdateAnime(animeInfoNew, animeNameNew, modifySeason, episode)
+            return setUpdateAnime(animeInfoNew, animeName, modifySeason, episode)
+        elif totalEpisodes < episodes:
+            pass
         else:
-            setAnimeProgress(animeNameNew, episode)
+            return setAnimeProgress(animeInfoNew, episode)
     '''
-    Comprar que los datos de TVDB coincidan con los de anilist
+    Comparar que los datos de TVDB coincidan con los de anilist
     Se pretende buscar la primera vez con el nombre del show genérico y ya con el año de ese cap trabajamos
     A partir de ahora no tomaremos el numero de la season para hacer la busqueda ya que es muy subjetivo
     Asique usaremos el año de ese episodio y lo formateamos si es necesario
@@ -123,16 +108,16 @@ def animeChecker(animeName, episodeYear, animeInfo, season, episode):
 def setUpdateAnime(animeInfo, animeName, season, episode): 
     if season > 1:
         absoluteEpisode = TVDBService.getAbsoluteEpisode(animeName, season, episode)
-        setAnimeProgress(animeInfo, absoluteEpisode)
+        return setAnimeProgress(animeInfo, absoluteEpisode)
     else:
-        setAnimeProgress(animeInfo, episode)
+        return setAnimeProgress(animeInfo, episode)
 
 def setAnimeProgress(animeInfo, episode):
     animeId = animeInfo['id']
-    animeUser = AnilistService.getAnimeUser(userId, animeId)
+    animeUser = AnilistService.getAnimeUser(CouchPotatoApp.userId, animeId)
     if animeUser == None:
         AnilistService.updateAnimeAndAddCurrent(animeId)
-        animeUser = AnilistService.getAnimeUser(userId, animeId)
+        animeUser = AnilistService.getAnimeUser(CouchPotatoApp.userId, animeId)
     if animeInfo['episodes'] == episode and animeUser['status'] == 'CURRENT':
                 return AnilistService.setAnimeUserStatus(animeUser['id'], 'COMPLETED', episode)
     elif animeUser['progress'] < episode:
@@ -157,6 +142,7 @@ def openBrowser():
     else:
         print(f"Port 5000 is already in use. Please check if the server is already running.")
 
-if __name__ == '__main__':
+if __name__ == '__main__':  
+    startCouchPotatoApp(CouchPotatoApp)
     openBrowser()
     app.run(debug=True)

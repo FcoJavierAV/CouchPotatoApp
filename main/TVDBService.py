@@ -16,7 +16,6 @@ def _setFormatSlug(text):
     slugText = text.replace(" ", "-").lower()
     return slugText
 
-
 def _formatDate(date_str):
     try:
         date = datetime.strptime(date_str, '%B %Y')
@@ -101,16 +100,16 @@ def getNumberOfEpisodesInSeason(animeTitle, seasonNumber):
     
     return allEpisodesList[seasonNumber - 1]
 
-def getNextSeasonDate(animeTitle, start_year, end_year):
+def getSeasonFromEpisodeYear(animeTitle, episode_year):
     temporadas = _getSeasonDates(animeTitle)
     for temporada in temporadas:
-        if temporada['StartDate']['year'] > end_year:
+        if temporada['EndDate']['year'] >= episode_year:
             return temporada['StartDate']['year']
     
     return print("No se ha encontrado la fecha de después, parece que era el ultimo rango")
 
 
-def getNextSeasonNum(animeTitle, start_year, end_year):
+def getNextSeasonNum(animeTitle, end_year):
     temporadas = _getSeasonDates(animeTitle)
     last_season_number = None
     
