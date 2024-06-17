@@ -53,13 +53,14 @@ def callback():
 
 def addEpisode(plexEpisodeViewed):     
     if plexEpisodeViewed != None:
-        season = plexEpisodeViewed['season']
+        '''season = plexEpisodeViewed['season']
         episode = plexEpisodeViewed['episode']
         animeName = plexEpisodeViewed['titleSlug']
-        animeYearEpisode = plexEpisodeViewed['year']
-        animeInfo = AnilistService.getAnimeInfo(animeName)
+        animeYearEpisode = plexEpisodeViewed['episodeYear']
+        animeYear = plexEpisodeViewed['year']'''
+        animeInfo = AnilistService.getAnimeInfo(plexEpisodeViewed['titleSlug'])
 
-        return animeChecker(animeName, animeYearEpisode, animeInfo, season, episode)
+        return animeChecker(animeInfo, plexEpisodeViewed)
 
     else:
         print(f"No se encuentra el objeto {plexEpisodeViewed}")
@@ -72,31 +73,37 @@ def isAnimeGeneric(animeName, yearAnimeChapter, episode):
 
     return yearAnimeChapter >= startDate and yearAnimeChapter <= endDate and episode <= totalEpisodes
 
-def animeChecker(animeName, episodeYear, animeInfo, season, episode):
-    startDate = animeInfo["startDate"]["year"]
-    endDate = animeInfo["endDate"]["year"]
+def animeChecker(animeInfo, plexEpisodeViewed):
+    season = plexEpisodeViewed['season']
+    episode = plexEpisodeViewed['episode']
+    animeName = plexEpisodeViewed['titleSlug']
+    episodeYear = plexEpisodeViewed['episodeYear']
+    animeYear = plexEpisodeViewed['showYear']
+    anilistStartDate = animeInfo["startDate"]["year"]
+    anilistEndDate = animeInfo["endDate"]["year"]
     allEpisodes = animeInfo["episodes"]
 
-    if episodeYear >= startDate and episodeYear <= endDate:
-        episodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season)
-        if allEpisodes != episodes:
+    if episodeYear >= anilistStartDate and episodeYear <= anilistEndDate:
+        tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
+        if allEpisodes != tvdbNumEpisodes:
             return setUpdateAnime(animeInfo, animeName, season, episode)
         else:
             return setAnimeProgress(animeInfo, episode)
 
-    elif episodeYear > endDate:
-        year = TVDBService.getSeasonFromEpisodeYear(animeName, episodeYear)
-        animeInfoNew = AnilistService.getAnimeInfoDetail(animeName, year)
-        episodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season)
+    elif episodeYear > anilistEndDate:
+        tvdbYear = TVDBService.getSeasonFromEpisodeYear(animeName, episodeYear, animeYear)
+        animeInfoNew = AnilistService.getAnimeInfoDetail(animeName, tvdbYear)
+        tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
         endDateNew = animeInfoNew["endDate"]["year"]
         totalEpisodes = animeInfoNew["episodes"]
 
-        if totalEpisodes > episodes:
-            seasonNum = TVDBService.getNextSeasonNum(animeName, endDateNew)
+        if totalEpisodes > tvdbNumEpisodes:
+            seasonNum = TVDBService.getNextSeasonNum(animeName, endDateNew, animeYear)
             modifySeason = season - seasonNum
-            return setUpdateAnime(animeInfoNew, animeName, modifySeason, episode)
-        elif totalEpisodes < episodes:
-            pass
+            return setUpdateAnime(animeInfoNew, animeName, modifySeason, season, animeYear)
+        elif totalEpisodes < tvdbNumEpisodes:
+            modifyEpisode = setCorrectEpisode(episode, totalEpisodes)
+            return setAnimeProgress(animeInfoNew, modifyEpisode)
         else:
             return setAnimeProgress(animeInfoNew, episode)
     '''
@@ -105,9 +112,12 @@ def animeChecker(animeName, episodeYear, animeInfo, season, episode):
     A partir de ahora no tomaremos el numero de la season para hacer la busqueda ya que es muy subjetivo
     Asique usaremos el año de ese episodio y lo formateamos si es necesario
     '''
-def setUpdateAnime(animeInfo, animeName, season, episode): 
+def setCorrectEpisode(currentEpisode, totalExpected):
+    return currentEpisode - totalExpected
+
+def setUpdateAnime(animeInfo, animeName, season, episode, animeYear): 
     if season > 1:
-        absoluteEpisode = TVDBService.getAbsoluteEpisode(animeName, season, episode)
+        absoluteEpisode = TVDBService.getAbsoluteEpisode(animeName, season, episode, animeYear)
         return setAnimeProgress(animeInfo, absoluteEpisode)
     else:
         return setAnimeProgress(animeInfo, episode)
@@ -118,16 +128,16 @@ def setAnimeProgress(animeInfo, episode):
     if animeUser == None:
         AnilistService.updateAnimeAndAddCurrent(animeId)
         animeUser = AnilistService.getAnimeUser(CouchPotatoApp.userId, animeId)
-    if animeInfo['episodes'] == episode and animeUser['status'] == 'CURRENT':
-                return AnilistService.setAnimeUserStatus(animeUser['id'], 'COMPLETED', episode)
+    if animeInfo['episodes'] == episode and animeUser['status'] in ['CURRENT', 'REPEATING']:
+        return AnilistService.setAnimeUserStatus(animeUser['id'], 'COMPLETED', episode)
     elif animeUser['progress'] < episode:
-            if animeUser['status'] == 'CURRENT' or  animeUser['status'] == 'PAUSED' or  animeUser['status'] == 'PLANNING':
-                return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
-            elif animeUser['status'] == 'DROPPED':
-                print("Has abandonado el anime y no se puede añadir")
-            elif animeUser['status'] == 'REPEATING' or  animeUser['status'] == 'COMPLETED':
-                return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
-        
+        if animeUser['status'] in ['CURRENT', 'PAUSED', 'PLANNING']:
+            return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
+        elif animeUser['status'] == 'DROPPED':
+            print("Has abandonado el anime y no se puede añadir")
+        elif animeUser['status'] in ['REPEATING', 'COMPLETED']:
+            return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
+
 # End point
 def isPortInUse(port):
     for conn in psutil.net_connections():

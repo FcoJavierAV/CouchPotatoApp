@@ -71,7 +71,8 @@ def getCompletedSessions():
                         return {'originalTitle': show.originalTitle,
                                 'season': plex_session.season_number,
                                 'episode': plex_session.episode_number,
-                                'year': plex_session.year,
+                                'episodeYear': plex_session.year,
+                                'showYear': show.year,
                                 'titleSlug': plex_session.grandparentSlug}                             
         else:
             print(' * No hay sesiones de medios activas en este momento.')
