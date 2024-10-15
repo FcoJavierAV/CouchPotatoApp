@@ -3,27 +3,61 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+
+options = webdriver.EdgeOptions()
+options.add_argument("--headless=old")
+
 
 def _getWebScrapingHTMLContent(animeTitle, animeYear):
-    response = _getSeasonHTMLContent(animeTitle)
+    response = _getSeasonHTMLResponse(animeTitle)
     if response.status_code == 404:
-        response = _getSearchPageHTMLContent(animeTitle, animeYear)
-        animeURL = _getFirstSearchedElement(response.content)
-        return requests.get("https://www.thetvdb.com" + animeURL).content
+        animeURL = _getAnimeURL(animeTitle, animeYear)
+        return requests.get(animeURL).text
     else:
-        return response.content
+        return response.text
 
 
-def _getSeasonHTMLContent(animeTitle):
+def _getSeasonHTMLResponse(animeTitle):
     animeName = _setFormatSlug(animeTitle)
     website = "https://www.thetvdb.com/series/"
     animeURL = website + animeName + '#seasons'
     return  requests.get(animeURL)
+"""
 
-def _getSearchPageHTMLContent(animeTitle, year):
+def _getAnimeURL(animeTitle, year):    
     website = "https://www.thetvdb.com/search?query="
     animeURL = website + _setFormatSearch(animeTitle, year)
-    return  requests.get(animeURL)
+    edge = webdriver.Edge(options=options)
+    edge.get(animeURL)
+    animeEntries = edge.find_elements(By.CLASS_NAME, "ais-Hits-item")
+    links = []
+    for item in animeEntries:
+        link = item.find_element(By.TAG_NAME, 'a')
+        links.append(link.get_attribute('href'))
+    edge.quit()
+    return links[0]
+"""
+def _getAnimeURL(animeTitle, year):
+    website = "https://www.thetvdb.com/search?query="
+    animeURL = website + _setFormatSearch(animeTitle, year)
+    response = requests.get(animeURL)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        animeEntries = soup.find_all('div', class_="ais-Hits-item")
+        links = []
+        for item in animeEntries:
+            link = item.find('a', href=True)
+            if link:
+                links.append(link['href'])
+        if links:
+            return links[0]
+        else:
+            return "No se encontraron resultados"
+    else:
+        return f"Error al acceder a la página. Código de estado: {response.status_code}"
 
 def _setFormatSlug(text):
     text = re.sub(r'-1$', '', text)
@@ -42,12 +76,6 @@ def _formatDate(date_str):
         return {"year": date.year, "month": date.month}
     except ValueError:
         return None
-
-def _getFirstSearchedElement(htmlContent):
-    soup = BeautifulSoup(htmlContent, 'html.parser')
-    list = soup.find('div', id='hits')
-    firstElement = list.find_all('li')[0]
-    return firstElement.find('a')['href']
 
 
 def _getSeasonDates(animeTitle, animeYear):
@@ -71,21 +99,6 @@ def _getSeasonDates(animeTitle, animeYear):
                 })
     
     return seasonDates
-
-def getAbsoluteEpisode(originalAnimeName, currentSeason, currentEpisode, animeYear):
-    allEpisodesList = _getAnimeListAllEpisode(originalAnimeName, animeYear)
-    seasonsList = _getSeasonNumTVDB(originalAnimeName, animeYear)
- 
-    temporada_index = currentSeason - 1
-    
-    if temporada_index < 0 or temporada_index >= len(seasonsList):
-        raise ValueError("Número de temporada no válido")
-    
-    if currentEpisode < 1 or currentEpisode > allEpisodesList[temporada_index]:
-        raise ValueError("Número de episodio no válido en la temporada especificada")
-    
-    episodio_absoluto = sum(allEpisodesList[:temporada_index]) + currentEpisode
-    return episodio_absoluto
 
 def _getAnimeListAllEpisode(animeTitle, animeYear):
     soup = BeautifulSoup(_getWebScrapingHTMLContent(animeTitle, animeYear), 'html.parser')
@@ -129,15 +142,21 @@ def getSeasonFromEpisodeYear(animeTitle, episodeYear, animeYear):
 
 def getNextSeasonNum(animeTitle, endYear, animeYear):
     seasons = _getSeasonDates(animeTitle, animeYear)
-    last_season_number = None
+    valid_seasons = [index + 1 for index, season in enumerate(seasons) if season['StartDate']['year'] <= endYear]
     
-    for index, season in enumerate(seasons):
-        if season['StartDate']['year'] <= endYear:
-            last_season_number = index + 1 
-        else:
-            break
+    return valid_seasons[-1] if valid_seasons else "No se encontró una temporada dentro del rango especificado"
+
+def getAbsoluteEpisode(originalAnimeName, currentSeason, currentEpisode, animeYear):
+    allEpisodesList = _getAnimeListAllEpisode(originalAnimeName, animeYear)
+    seasonsList = _getSeasonNumTVDB(originalAnimeName, animeYear)
+ 
+    temporada_index = currentSeason - 1
     
-    if last_season_number is not None:
-        return last_season_number
-    else:
-        return "No se encontró una temporada dentro del rango especificado"
+    if temporada_index < 0 or temporada_index >= len(seasonsList):
+        raise ValueError("Número de temporada no válido")
+    
+    if currentEpisode < 1 or currentEpisode > allEpisodesList[temporada_index]:
+        raise ValueError("Número de episodio no válido en la temporada especificada")
+    
+    episodio_absoluto = sum(allEpisodesList[:temporada_index]) + currentEpisode
+    return episodio_absoluto

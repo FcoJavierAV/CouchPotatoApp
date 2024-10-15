@@ -53,65 +53,57 @@ def callback():
 
 def addEpisode(plexEpisodeViewed):     
     if plexEpisodeViewed != None:
-        '''season = plexEpisodeViewed['season']
-        episode = plexEpisodeViewed['episode']
-        animeName = plexEpisodeViewed['titleSlug']
-        animeYearEpisode = plexEpisodeViewed['episodeYear']
-        animeYear = plexEpisodeViewed['year']'''
         animeInfo = AnilistService.getAnimeInfo(plexEpisodeViewed['titleSlug'])
-
         return animeChecker(animeInfo, plexEpisodeViewed)
 
     else:
         print(f"No se encuentra el objeto {plexEpisodeViewed}")
 
-def isAnimeGeneric(animeName, yearAnimeChapter, episode):
-    animeInfo = AnilistService.getAnimeInfo(animeName)
-    startDate = animeInfo['startDate']['year']
-    endDate = animeInfo["endDate"]["year"]
-    totalEpisodes = animeInfo['episodes']
-
-    return yearAnimeChapter >= startDate and yearAnimeChapter <= endDate and episode <= totalEpisodes
-
 def animeChecker(animeInfo, plexEpisodeViewed):
+    episodeYear = plexEpisodeViewed['episodeYear']
+    anilistStartDate = animeInfo["startDate"]["year"]
+    anilistEndDate = animeInfo["endDate"]["year"]
+
+    if episodeYear >= anilistStartDate and episodeYear <= anilistEndDate:
+        return anilistReference(plexEpisodeViewed, animeInfo)
+
+    elif episodeYear > anilistEndDate:
+        return anilistWithoutRefence(plexEpisodeViewed)
+
+def anilistWithoutRefence(plexEpisodeViewed):
     season = plexEpisodeViewed['season']
     episode = plexEpisodeViewed['episode']
     animeName = plexEpisodeViewed['titleSlug']
     episodeYear = plexEpisodeViewed['episodeYear']
     animeYear = plexEpisodeViewed['showYear']
-    anilistStartDate = animeInfo["startDate"]["year"]
-    anilistEndDate = animeInfo["endDate"]["year"]
-    allEpisodes = animeInfo["episodes"]
+    tvdbYear = TVDBService.getSeasonFromEpisodeYear(animeName, episodeYear, animeYear)
+    animeInfoNew = AnilistService.getAnimeInfoDetail(animeName, tvdbYear)
+    tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
+    anilistEndDateNew = animeInfoNew["endDate"]["year"]
+    anilistTotalEpisodes = animeInfoNew["episodes"]
 
-    if episodeYear >= anilistStartDate and episodeYear <= anilistEndDate:
-        tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
-        if allEpisodes != tvdbNumEpisodes:
-            return setUpdateAnime(animeInfo, animeName, season, episode)
-        else:
-            return setAnimeProgress(animeInfo, episode)
+    if anilistTotalEpisodes > tvdbNumEpisodes:
+        seasonNum = TVDBService.getNextSeasonNum(animeName, anilistEndDateNew, animeYear)
+        modifySeason = season - seasonNum
+        return setUpdateAnime(animeInfoNew, animeName, modifySeason, season, animeYear)
+    elif anilistTotalEpisodes < tvdbNumEpisodes:
+        modifyEpisode = setCorrectEpisode(episode, anilistTotalEpisodes)
+        return setAnimeProgress(animeInfoNew, modifyEpisode)
+    else:
+        return setAnimeProgress(animeInfoNew, episode)
 
-    elif episodeYear > anilistEndDate:
-        tvdbYear = TVDBService.getSeasonFromEpisodeYear(animeName, episodeYear, animeYear)
-        animeInfoNew = AnilistService.getAnimeInfoDetail(animeName, tvdbYear)
-        tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
-        endDateNew = animeInfoNew["endDate"]["year"]
-        totalEpisodes = animeInfoNew["episodes"]
+def anilistReference(plexEpisodeViewed, animeInfo):
+    season = plexEpisodeViewed['season']
+    episode = plexEpisodeViewed['episode']
+    animeName = plexEpisodeViewed['titleSlug']
+    animeYear = plexEpisodeViewed['showYear']
+    anilistAllEpisodes = animeInfo["episodes"]
+    tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
+    if anilistAllEpisodes != tvdbNumEpisodes:
+        return setUpdateAnime(animeInfo, animeName, season, episode)
+    else:
+        return setAnimeProgress(animeInfo, episode)
 
-        if totalEpisodes > tvdbNumEpisodes:
-            seasonNum = TVDBService.getNextSeasonNum(animeName, endDateNew, animeYear)
-            modifySeason = season - seasonNum
-            return setUpdateAnime(animeInfoNew, animeName, modifySeason, season, animeYear)
-        elif totalEpisodes < tvdbNumEpisodes:
-            modifyEpisode = setCorrectEpisode(episode, totalEpisodes)
-            return setAnimeProgress(animeInfoNew, modifyEpisode)
-        else:
-            return setAnimeProgress(animeInfoNew, episode)
-    '''
-    Comparar que los datos de TVDB coincidan con los de anilist
-    Se pretende buscar la primera vez con el nombre del show genérico y ya con el año de ese cap trabajamos
-    A partir de ahora no tomaremos el numero de la season para hacer la busqueda ya que es muy subjetivo
-    Asique usaremos el año de ese episodio y lo formateamos si es necesario
-    '''
 def setCorrectEpisode(currentEpisode, totalExpected):
     return currentEpisode - totalExpected
 
