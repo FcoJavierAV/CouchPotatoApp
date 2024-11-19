@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import requests
 import re
 from bs4 import BeautifulSoup
+import TVDBAPIService
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -25,7 +26,7 @@ def _getSeasonHTMLResponse(animeTitle):
     website = "https://www.thetvdb.com/series/"
     animeURL = website + animeName + '#seasons'
     return  requests.get(animeURL)
-"""
+
 
 def _getAnimeURL(animeTitle, year):    
     website = "https://www.thetvdb.com/search?query="
@@ -39,7 +40,8 @@ def _getAnimeURL(animeTitle, year):
         links.append(link.get_attribute('href'))
     edge.quit()
     return links[0]
-"""
+
+
 def _getAnimeURL(animeTitle, year):
     website = "https://www.thetvdb.com/search?query="
     animeURL = website + _setFormatSearch(animeTitle, year)
@@ -70,6 +72,7 @@ def _setFormatSearch(text, animeYear):
     formatedText += "&menu%5Btype%5D=series&menu%5Byear%5D=" + str(animeYear)
     return formatedText
 
+"""
 def _formatDate(date_str):
     try:
         date = datetime.strptime(date_str, '%B %Y')
@@ -100,6 +103,7 @@ def _getSeasonDates(animeTitle, animeYear):
     
     return seasonDates
 
+
 def _getAnimeListAllEpisode(animeTitle, animeYear):
     soup = BeautifulSoup(_getWebScrapingHTMLContent(animeTitle, animeYear), 'html.parser')
     seasonTable = soup.find('table', class_='table table-bordered table-hover table-colored')
@@ -113,8 +117,9 @@ def _getAnimeListAllEpisode(animeTitle, animeYear):
                 episodesForSeason.append(episodesNumber)
     
     return episodesForSeason
+"""
 
-def _getSeasonNumTVDB(animeTitle,animeYear):
+def _getSeasonNumTVDB(animeTitle,animeYear): 
     pattern = r"/official/[\w-]*"
     findSeasons = re.findall(pattern, str(_getWebScrapingHTMLContent(animeTitle, animeYear)))
     seasonsNumberList = []
@@ -124,7 +129,7 @@ def _getSeasonNumTVDB(animeTitle,animeYear):
     
     return seasonsNumberList
 
-def getNumberOfEpisodesInSeason(animeTitle, seasonNumber, animeYear):
+def getNumberOfEpisodesInSeason(animeTitle, seasonNumber, animeYear): # To do
     allEpisodesList = _getAnimeListAllEpisode(animeTitle, animeYear)
     
     if seasonNumber < 1 or seasonNumber > len(allEpisodesList):
@@ -132,21 +137,21 @@ def getNumberOfEpisodesInSeason(animeTitle, seasonNumber, animeYear):
     
     return allEpisodesList[seasonNumber - 1]
 
-def getSeasonFromEpisodeYear(animeTitle, episodeYear, animeYear):
-    seasons = _getSeasonDates(animeTitle, animeYear)
+def getSeasonFromEpisodeYear(animeTitle, episodeYear, animeYear): # Checked
+    seasons = TVDBAPIService.getSeasonDates(animeTitle, animeYear)
     for season in seasons:
         if season['EndDate']['year'] >= episodeYear:
             return season['StartDate']['year']
     
     return print("No se ha encontrado la fecha de después, parece que era el ultimo rango")
 
-def getNextSeasonNum(animeTitle, endYear, animeYear):
-    seasons = _getSeasonDates(animeTitle, animeYear)
+def getNextSeasonNum(animeTitle, endYear, animeYear): # Checked
+    seasons = TVDBAPIService.getSeasonDates(animeTitle, animeYear)
     valid_seasons = [index + 1 for index, season in enumerate(seasons) if season['StartDate']['year'] <= endYear]
     
     return valid_seasons[-1] if valid_seasons else "No se encontró una temporada dentro del rango especificado"
 
-def getAbsoluteEpisode(originalAnimeName, currentSeason, currentEpisode, animeYear):
+def getAbsoluteEpisode(originalAnimeName, currentSeason, currentEpisode, animeYear): # To do
     allEpisodesList = _getAnimeListAllEpisode(originalAnimeName, animeYear)
     seasonsList = _getSeasonNumTVDB(originalAnimeName, animeYear)
  

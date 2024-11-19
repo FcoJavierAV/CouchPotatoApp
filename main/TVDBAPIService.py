@@ -1,74 +1,60 @@
 import requests
-import os
+import tvdb_v4_official
+from datetime import datetime
 
-TOKEN_DIR = 'tokens'
-TOKEN_FILE = os.path.join(TOKEN_DIR,'tvdb_access_token.dat')
+APIKEY = "3f9cbd45-f38b-463c-8d97-89e9d6ed94ea"
+tvdb = tvdb_v4_official.TVDB(APIKEY)
 
-def loadAccessToken():
-    if os.path.exists(APIKEY):
-        with open(APIKEY, 'r') as file:
-            return file.read().strip()
-    else:
-        os.makedirs(TOKEN_DIR, exist_ok=True)
-        return None
-    
-APIKEY = loadAccessToken()
-
-def getTVDBToken(APIKEY):
-    url = 'https://api4.thetvdb.com/v4/login'
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    payload = {
-        'apikey': APIKEY
-    }
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    return response.json()['data']['token']
-
-
-def findSeriesByName(name, token):
-    url = f'https://api4.thetvdb.com/v4/search?query={name}'
-    headers = {
-        'Authorization': f'Bearer {token}'
-    }
+def _formatDate(date_str):
     try:
-        # Buscar la serie por nombre
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json().get('data', [])
-        
-        if not result:
-            print("No se encontraron resultados de búsqueda.")
-            return None
-        
-        series = result[0]
-        id = series['id']
-        
-        # Verificar y construir la URL de detalles correctamente
-        if not id:
-            print("No se encontró el ID de la serie.")
-            return None
-        
-        findSeriesUrl = f'https://api4.thetvdb.com/v4/series/{id}'
-        print(f"URL de detalles: {findSeriesUrl}")  # Imprimir la URL para depuración
-        
-        # Obtener más detalles de la serie usando el series_id
-        response = requests.get(findSeriesUrl, headers=headers)
-        response.raise_for_status()
-        seriesDetails = response.json().get('data', {})
-        
-        return seriesDetails
-    
-    except requests.exceptions.RequestException as e:
-        print(f"Error al realizar la solicitud: {e}")
+        date = datetime.fromisoformat(date_str)
+        return date
+    except ValueError:
         return None
 
-# Ejemplo de uso
-token = getTVDBToken(APIKEY)
-name = 'Breaking Bad'
-detalles = findSeriesByName(name, token)
-if detalles:
-    print(detalles)
-else:
-    print("No se encontraron detalles para la serie especificada.")
+def get_aired(episode):
+    return _formatDate(episode['aired'])
+
+def getSeasonsDates(animeTitle, animeYear):
+    name = animeTitle + " " + animeYear
+    search = tvdb.search(name)
+    seasons = tvdb.get_series_extended(search[0]["id"][7:])["seasons"]
+    seasonDates = []
+    for season in seasons:
+        if season['number'] not in [0, 1, len(season)-1]:
+            dates = [get_aired(episode) for episode in tvdb.get_season_extended(season['id'])['episodes']]
+            dates.sort()
+
+            seasonDates.append({
+                "Temporada": season,
+                "StartDate": dates[0],
+                "EndDate": dates[-1]
+            })
+    return seasonDates
+
+def _getAnimeListAllEpisode(animeTitle, animeYear): # To do
+    soup = BeautifulSoup(_getWebScrapingHTMLContent(animeTitle, animeYear), 'html.parser')
+    seasonTable = soup.find('table', class_='table table-bordered table-hover table-colored')
+    episodesForSeason = []
+    for row in seasonTable.find_all('tr'):
+        columns = row.find_all('td')
+        if columns and len(columns) == 4:
+            season = columns[0].text.strip()
+            if season not in ["Specials", "All Seasons", "Unassigned Episodes"]:
+                episodesNumber = int(columns[3].text.strip())
+                episodesForSeason.append(episodesNumber)
+    
+    return episodesForSeason
+
+
+def getSeasonsNumTVDB(animeTitle, animeYear):
+    name = animeTitle + " " + animeYear
+    search = tvdb.search(name)
+    seasons = tvdb.get_series_extended(search[0]["id"][7:])["seasons"]
+    seasonsNumberList = []
+    for season in seasons:
+        if seasons['number'] not in [0, len(season)-1]:
+            seasonNumber = len(seasons)
+            seasonsNumberList.append(seasonNumber)
+    
+    return seasonsNumberList

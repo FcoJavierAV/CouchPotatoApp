@@ -100,7 +100,7 @@ def anilistReference(plexEpisodeViewed, animeInfo):
     anilistAllEpisodes = animeInfo["episodes"]
     tvdbNumEpisodes = TVDBService.getNumberOfEpisodesInSeason(animeName, season, animeYear)
     if anilistAllEpisodes != tvdbNumEpisodes:
-        return setUpdateAnime(animeInfo, animeName, season, episode)
+        return setUpdateAnime(animeInfo, animeName, season, episode, animeYear)
     else:
         return setAnimeProgress(animeInfo, episode)
 
@@ -127,8 +127,8 @@ def setAnimeProgress(animeInfo, episode):
             return AnilistService.setAnimeUserStatus(animeUser['id'], 'CURRENT', episode)
         elif animeUser['status'] == 'DROPPED':
             print("Has abandonado el anime y no se puede añadir")
-        elif animeUser['status'] in ['REPEATING', 'COMPLETED']:
-            return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
+    if animeUser['status'] in ['COMPLETED'] or animeUser['status'] in ['REPEATING'] and animeUser['progress'] < episode:
+        return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
 
 # End point
 def isPortInUse(port):
