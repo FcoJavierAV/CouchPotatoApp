@@ -32,19 +32,18 @@ def getSeasonsDates(animeTitle, animeYear):
             })
     return seasonDates
 
-def _getAnimeListAllEpisode(animeTitle, animeYear): # To do
-    soup = BeautifulSoup(_getWebScrapingHTMLContent(animeTitle, animeYear), 'html.parser')
-    seasonTable = soup.find('table', class_='table table-bordered table-hover table-colored')
-    episodesForSeason = []
-    for row in seasonTable.find_all('tr'):
-        columns = row.find_all('td')
-        if columns and len(columns) == 4:
-            season = columns[0].text.strip()
-            if season not in ["Specials", "All Seasons", "Unassigned Episodes"]:
-                episodesNumber = int(columns[3].text.strip())
-                episodesForSeason.append(episodesNumber)
-    
-    return episodesForSeason
+def getAnimeListAllEpisode(animeTitle, animeYear):
+    name = animeTitle + " " + str(animeYear)
+    search = tvdb.search(name)
+    seasons = tvdb.get_series_extended(search[0]["id"][7:])["seasons"]
+    episodesForSeasons = []
+    for season in seasons:
+        seasons = tvdb.get_season_extended(seasons[season]["id"])['episodes']
+        if season['number'] not in [len(season)-1]:
+            episodesNumber = len(seasons)
+            episodesForSeasons.append(episodesNumber)
+
+    return episodesForSeasons
 
 
 def getSeasonsNumTVDB(animeTitle, animeYear):
