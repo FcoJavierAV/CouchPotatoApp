@@ -129,7 +129,8 @@ def setAnimeProgress(animeInfo, episode):
             print("Has abandonado el anime y no se puede añadir")
     if animeUser['status'] in ['COMPLETED'] or animeUser['status'] in ['REPEATING'] and animeUser['progress'] < episode:
         return AnilistService.setAnimeUserStatus(animeUser['id'], 'REPEATING', episode)
-
+    return None
+    
 # End point
 def isPortInUse(port):
     for conn in psutil.net_connections():
