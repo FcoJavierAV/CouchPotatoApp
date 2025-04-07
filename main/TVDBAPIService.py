@@ -1,7 +1,8 @@
 import tvdb_v4_official
 from datetime import datetime
+from readWrite import LoadArchives
 
-APIKEY = "3f9cbd45-f38b-463c-8d97-89e9d6ed94ea"
+APIKEY = LoadArchives.getAccessToken()
 tvdb = tvdb_v4_official.TVDB(APIKEY)
 
 def _formatDate(date_str):
@@ -11,41 +12,46 @@ def _formatDate(date_str):
     except ValueError:
         return None
 
-def get_aired(episode):
+def getAired(episode):
     return _formatDate(episode['aired'])
 
 def getSeasonsDates(animeTitle, animeYear):
-    seasons = tvdb.get_series_extended(animeSearched(animeTitle, animeYear)[0]["id"][7:])["seasons"]
-    seasonDates = []
-    for season in seasons:
-        if season['number'] not in [0, 1, len(season)-1]:
-            dates = [get_aired(episode) for episode in tvdb.get_season_extended(season['id'])['episodes']]
-            dates.sort()
+    try:
+        search = tvdb.search(animeTitle)
+        search = [s for s in search if s['type'] == "series" and 'year' in s.keys() and s['year'] == str(animeYear)]
+        seasons = tvdb.get_series_extended(search[0]["tvdb_id"])["seasons"]
+        seasonDates = []
+        official_seasons = [season for season in seasons if season['type']['type'] == 'official' and season['number'] != 0]
 
+        for season in official_seasons:
+            dates = [getAired(episode) for episode in tvdb.get_season_extended(season['id'])['episodes']]
+            dates.sort()
             seasonDates.append({
-                "Temporada": season,
-                "StartDate": dates[0],
-                "EndDate": dates[-1]
+            "Temporada": season['number'],
+            "StartDate": dates[0],
+            "EndDate": dates[-1]
             })
-    return seasonDates
+        return seasonDates
+    except Exception as e:
+        return print("Error en la búsqueda")
 
 def getAnimeListAllEpisodes(animeTitle, animeYear):
-    seasons = tvdb.get_series_extended(animeSearched(animeTitle, animeYear)[0]["id"][7:])["seasons"]   
+    seasons = tvdb.get_series_extended(animeSearched(animeTitle, animeYear)[0]["tvdb_id"])["seasons"]   
     episodesForSeasons = []
     for season in seasons:
-        if season['type']['name'] == 'Aired Order':
-            if season['number'] not in [0, len(season)-1]:
+        if season['type']['type'] == 'official':
+            if season['number'] != 0:
                 episodes =  len(tvdb.get_season_extended(season['id'])['episodes'])
                 episodesForSeasons.append(episodes)
     
     return episodesForSeasons
 
 def getSeasonsNumTVDB(animeTitle, animeYear):
-    series_id = tvdb.get_series_extended(animeSearched(animeTitle, animeYear)[0]["id"][7:])["seasons"]
+    seasons = tvdb.get_series_extended(animeSearched(animeTitle, animeYear)[0]["tvdb_id"])["seasons"]
     seasonsNumberList = []
 
-    for season in series_id:  
-        if season.get('type', {}).get('name', '').lower() == 'aired order' and season['number'] not in [0, len(series_id) - 1]:
+    for season in seasons:  
+        if season['type']['type'] == 'official' and season['number'] != 0:
             seasonsNumberList.append(season['number'])  
         
     return seasonsNumberList
@@ -53,4 +59,6 @@ def getSeasonsNumTVDB(animeTitle, animeYear):
 def animeSearched(animeTitle, animeYear):
     name = animeTitle + " " + str(animeYear)
     search = tvdb.search(name.lower())
+    if not search:
+        raise ValueError("No se encontraron resultados para la búsqueda.")
     return search

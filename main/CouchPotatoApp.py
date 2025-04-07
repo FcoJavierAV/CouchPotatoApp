@@ -20,7 +20,7 @@ def startCouchPotatoApp(self):
     mainThread = threading.Thread(target=completeSessionTask)
     mainThread.start()
 
-def completeSessionTask():#TODO: Think if it is convenient to change this to a file
+def completeSessionTask(): #TODO: Think if it is convenient to change this to a file
     while True:
         checkCompletedSessions(None)
         time.sleep(5)

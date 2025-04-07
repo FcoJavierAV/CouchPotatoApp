@@ -1,7 +1,7 @@
 import TVDBAPIService
 
 def getNumberOfEpisodesInSeason(animeTitle, seasonNumber, animeYear): 
-    allEpisodesList = TVDBAPIService.getAnimeListAllEpisode(animeTitle, animeYear)
+    allEpisodesList = TVDBAPIService.getAnimeListAllEpisodes(animeTitle, animeYear)
     
     if seasonNumber < 1 or seasonNumber > len(allEpisodesList):
         raise ValueError("Número de temporada no válido")
@@ -9,22 +9,22 @@ def getNumberOfEpisodesInSeason(animeTitle, seasonNumber, animeYear):
     return allEpisodesList[seasonNumber - 1]
 
 def getSeasonFromEpisodeYear(animeTitle, episodeYear, animeYear):
-    seasons = TVDBAPIService.getSeasonDates(animeTitle, animeYear)
+    seasons = TVDBAPIService.getSeasonsDates(animeTitle, animeYear)
     for season in seasons:
-        if season['EndDate']['year'] >= episodeYear:
-            return season['StartDate']['year']
+        if season['EndDate'].year >= episodeYear:
+            return season['StartDate'].year
     
     return print("No se ha encontrado la fecha de después, parece que era el ultimo rango")
 
 def getNextSeasonNum(animeTitle, endYear, animeYear):
-    seasons = TVDBAPIService.getSeasonDates(animeTitle, animeYear)
-    valid_seasons = [index + 1 for index, season in enumerate(seasons) if season['StartDate']['year'] <= endYear]
+    seasons = TVDBAPIService.getSeasonsDates(animeTitle, animeYear)
+    valid_seasons = [index + 1 for index, season in enumerate(seasons) if season['StartDate'].year <= endYear]
     
     return valid_seasons[-1] if valid_seasons else "No se encontró una temporada dentro del rango especificado"
 
 def getAbsoluteEpisode(originalAnimeName, currentSeason, currentEpisode, animeYear): 
-    allEpisodesList = TVDBAPIService.getAnimeListAllEpisode(originalAnimeName, animeYear)
-    seasonsList = TVDBAPIService.getSeasonNumTVDB(originalAnimeName, animeYear)
+    allEpisodesList = TVDBAPIService.getAnimeListAllEpisodes(originalAnimeName, animeYear)
+    seasonsList = TVDBAPIService.getSeasonsNumTVDB(originalAnimeName, animeYear)
  
     temporada_index = currentSeason - 1
     
